@@ -1,26 +1,22 @@
 import os
 import subprocess
 import shutil
-import json
-import pathlib
-import zipfile
-from robocorp import task, workitems
-from robocorp.tasks import get_output_dir # Keep this if repos task is kept
-import pandas as pd # Keep this if repos task is kept
-from git import Repo # Keep this if repos task is kept
-from git.exc import GitCommandError # Keep this if repos task is kept
-from fetch_repos import fetch_github_repos # Keep this if repos task is kept
+import os
+import git
+from git import Repo
+from git.exc import GitCommandError
+from fetch_repos import fetch_github_repos
 
-# ---------- NEW: local FileAdapter ----------
-os.environ["RC_WORKITEM_ADAPTER"] = "FileAdapter"
-os.environ["RC_WORKITEM_INPUT_PATH"]  = "/tmp/input.json"
-os.environ["RC_WORKITEM_OUTPUT_PATH"] = "/tmp/output.json"
 
-@task
+
+
 def repos():
     """Fetches the list of repositories from GitHub and saves it to a CSV file."""
     for item in workitems.inputs:
-        org = item.payload.get("org")
+        payload = item.payload
+        if not isinstance(payload, dict):
+            raise ValueError("Payload must be a dictionary")
+        org = payload.get("org")
         if not org:
             raise ValueError("Organization name is required in the payload.")
         print(f"Fetching repositories for organization: {org}")
@@ -30,13 +26,38 @@ def repos():
 # ---------- PRODUCER ----------
 @task
 def producer():
-    """Read repos.txt and emit one work item per repo URL."""
-    repos = pathlib.Path("repos.txt").read_text().splitlines()
-    for repo in filter(None, map(str.strip, repos)):
-        wi = workitems.outputs.create()
-        wi.payload = {"repo": repo}
+    """Split Csv rows into multiple output Work Items for the next step."""
+    output = get_output_dir() or Path("output")
+    
+    # Get the DataFrame from repos() function
+    df = repos()
+    
+    outputs_created = False
+    
+    if df is not None and not df.empty:
+        print(f"Processing {len(df)} repositories from DataFrame")
+        rows = df.to_dict(orient="records")
+        for row in rows:
+            payload = {
+                "Name": row.get("Name"),
+                "URL": row.get("URL"),
+                "Description": row.get("Description"),
+                "Created": row.get("Created"),
+                "Last Updated": row.get("Last Updated"),
+                "Language": row.get("Language"),
+                "Stars": row.get("Stars"),
+                "Is Fork": row.get("Is Fork")
+            }
+            workitems.outputs.create(payload)
+            outputs_created = True
+        print(f"Created {len(rows)} work items from DataFrame")
+    else:
+        print("No data received from repos() function")
+    
+    if not outputs_created:
+        print("No output work items were created. Check if repos() returned valid data.")
 
-# ---------- CONSUMER ----------
+
 @task
 def consumer():
     """Clone repo, zip it, attach as file."""

@@ -2,10 +2,6 @@
   {
     "payload": {
       "org": "robocorp"
-    },
-    "files": {
-      "robocorp.csv": "robocorp.csv",
-      "sema4ai.csv": "sema4ai.csv"
     }
   }
 ]

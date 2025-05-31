@@ -1,34 +1,44 @@
-name: Fetch Robocorp Repositories and zip them
+name: Robocorp ARC Single-Job Workflow
 
 on:
   workflow_dispatch:
+    inputs:
+      org_name:
+        description: 'Organization name to fetch repositories from'
+        required: true
+        type: string
+        default: 'robocorp'
 
 jobs:
-  build:
-    runs-on: slot-01
+  run:
+    runs-on: arc-runner-fetch-repos-bot
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           clean: true
-      - name: Run rcc holotree vars
-        run: rcc holotree vars
 
-  deploy:
-    needs: build
-    runs-on: slot-01
-    steps:
+      - name: Ensure RCC is installed
+        run: |
+          if ! command -v rcc &> /dev/null; then
+            echo "RCC not found. Downloading..."
+            curl -o rcc https://downloads.robocorp.com/rcc/releases/latest/linux64/rcc
+            chmod +x rcc
+            sudo mv rcc /usr/local/bin/
+          else
+            echo "RCC is already installed."
+          fi
+
       - name: Make start.sh executable
         run: chmod +x start.sh
+
       - name: Run start.sh
         run: ./start.sh
-      - name: Upload zip file
+        env:
+          ORG_NAME: ${{ inputs.org_name }}
+
+      - name: Upload output directory
         uses: actions/upload-artifact@v4
         with:
-          name: robocorp-repositories
+          name: output-${{ inputs.org_name }}
           path: output/
-          retention-days: 7
-      - name: Cleanup workspace
-        if: always()
-        run: rm -rf output/*
-

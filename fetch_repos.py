@@ -1,13 +1,17 @@
 import requests
 import pandas as pd
 
-def fetch_github_repos(entity="robocorp", entity_type=None):
+def fetch_github_repos(entity="robocorp", entity_type=None, write_csv=False):
     """
     Fetch public repositories from a GitHub organization or user.
     
     Args:
         entity (str): The name of the organization or user
         entity_type (str, optional): Type of entity ('org' or 'user'). If None, will auto-detect.
+        write_csv (bool): Whether to write the results to a CSV file. If False, returns DataFrame.
+    
+    Returns:
+        pandas.DataFrame: DataFrame containing repository information
     """
     # Auto-detect entity type if not specified
     if entity_type is None:
@@ -76,10 +80,15 @@ def fetch_github_repos(entity="robocorp", entity_type=None):
     # Sort by stars for the CSV
     repo_list.sort(key=lambda x: x["Stars"] or 0, reverse=True)
     
-    csv_filename = f"devdata/work-items-in/test-input-for-producer/repos.csv"
+    # Create DataFrame
     df = pd.DataFrame(repo_list)
-    df.to_csv(csv_filename, index=False)
-    print(f"CSV file '{csv_filename}' created successfully with {len(repo_list)} repositories.")
+    
+    if write_csv:
+        csv_filename = f"devdata/work-items-in/test-input-for-producer/repos.csv"
+        df.to_csv(csv_filename, index=False)
+        print(f"CSV file '{csv_filename}' created successfully with {len(repo_list)} repositories.")
+    
+    return df
 
 if __name__ == "__main__":
     import sys
