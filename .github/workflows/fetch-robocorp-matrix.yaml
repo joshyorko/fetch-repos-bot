@@ -53,13 +53,9 @@ jobs:
         uses: actions/upload-artifact@v4.6.2
         with:
           name: producer-output
-          path: output/producer-to-consumer/
+          path: output/
 
-      - name: Upload sharded work items
-        uses: actions/upload-artifact@v4.6.2
-        with:
-          name: sharded-work-items
-          path: output/shards/
+    
 
   consumer:
     runs-on: arc-runner-fetch-repos-bot
