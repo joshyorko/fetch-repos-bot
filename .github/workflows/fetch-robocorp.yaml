@@ -1,4 +1,4 @@
-name: Robocorp ARC Single-Job Workflow
+name: Robocorp ARC Producer-Consumer Workflow
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ on:
         default: 'robocorp'
 
 jobs:
-  run:
+  producer:
     runs-on: arc-runner-fetch-repos-bot
     steps:
       - name: Checkout repository
@@ -32,13 +32,47 @@ jobs:
       - name: Make start.sh executable
         run: chmod +x start.sh
 
-      - name: Run start.sh
-        run: ./start.sh
+      - name: Run RCC Producer
+        run: rcc run -t producer -e devdata/env-for-producer.json
         env:
           ORG_NAME: ${{ inputs.org_name }}
 
-      - name: Upload output directory
+      - name: Upload output directory (producer)
         uses: actions/upload-artifact@v4
         with:
-          name: output-${{ inputs.org_name }}
+          name: output-producer-${{ inputs.org_name }}
+          path: output/
+
+  consumer:
+    runs-on: arc-runner-fetch-repos-bot
+    needs: producer
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          clean: true
+
+      - name: Ensure RCC is installed
+        run: |
+          if ! command -v rcc &> /dev/null; then
+            echo "RCC not found. Downloading..."
+            curl -o rcc https://downloads.robocorp.com/rcc/releases/latest/linux64/rcc
+            chmod +x rcc
+            sudo mv rcc /usr/local/bin/
+          else
+            echo "RCC is already installed."
+          fi
+
+      - name: Make start.sh executable
+        run: chmod +x start.sh
+
+      - name: Run RCC Consumer
+        run: rcc run -t consumer -e devdata/env-for-consumer.json
+        env:
+          ORG_NAME: ${{ inputs.org_name }}
+
+      - name: Upload output directory (consumer)
+        uses: actions/upload-artifact@v4
+        with:
+          name: output-consumer-${{ inputs.org_name }}
           path: output/

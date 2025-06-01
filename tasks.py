@@ -12,51 +12,66 @@ from fetch_repos import fetch_github_repos
 
 
 
-def repos():
+def repos(org_name):
     """Fetches the list of repositories from GitHub and saves it to a CSV file."""
+    if not org_name:
+        raise ValueError("Organization name is required.")
+    print(f"Fetching repositories for organization: {org_name}")
+    return fetch_github_repos(org_name)
+
+@task
+def producer():
+    """Fetches repositories from GitHub org and creates work items for each repository."""
+    import os
+    output = get_output_dir() or Path("output")
+
+    # Process input work items to get organization name
     for item in workitems.inputs:
         payload = item.payload
         if not isinstance(payload, dict):
             raise ValueError("Payload must be a dictionary")
-        org = payload.get("org")
-        if not org:
-            raise ValueError("Organization name is required in the payload.")
-        print(f"Fetching repositories for organization: {org}")
-        break
-    return fetch_github_repos(org)
+        
+        org_name = payload.get("org")
+        if not org_name:
+            # Fallback: check for ORG_NAME environment variable (for GitHub Actions)
+            org_name = os.getenv("ORG_NAME")
+        
+        if not org_name:
+            raise ValueError("Organization name is required in work item payload 'org' field or ORG_NAME environment variable.")
+        
+        print(f"Processing organization: {org_name}")
 
-@task
-def producer():
-    """Split Csv rows into multiple output Work Items for the next step."""
-    output = get_output_dir() or Path("output")
-    
-    # Get the DataFrame from repos() function
-    df = repos()
-    
-    outputs_created = False
-    
-    if df is not None and not df.empty:
-        print(f"Processing {len(df)} repositories from DataFrame")
-        rows = df.to_dict(orient="records")
-        for row in rows:
-            payload = {
-                "Name": row.get("Name"),
-                "URL": row.get("URL"),
-                "Description": row.get("Description"),
-                "Created": row.get("Created"),
-                "Last Updated": row.get("Last Updated"),
-                "Language": row.get("Language"),
-                "Stars": row.get("Stars"),
-                "Is Fork": row.get("Is Fork")
-            }
-            workitems.outputs.create(payload)
-            outputs_created = True
-        print(f"Created {len(rows)} work items from DataFrame")
-    else:
-        print("No data received from repos() function")
-    
-    if not outputs_created:
-        print("No output work items were created. Check if repos() returned valid data.")
+        # Get the DataFrame from repos() function
+        df = repos(org_name)
+
+        outputs_created = False
+
+        if df is not None and not df.empty:
+            print(f"Processing {len(df)} repositories from DataFrame")
+            rows = df.to_dict(orient="records")
+            for row in rows:
+                repo_payload = {
+                    "Name": row.get("Name"),
+                    "URL": row.get("URL"),
+                    "Description": row.get("Description"),
+                    "Created": row.get("Created"),
+                    "Last Updated": row.get("Last Updated"),
+                    "Language": row.get("Language"),
+                    "Stars": row.get("Stars"),
+                    "Is Fork": row.get("Is Fork")
+                }
+                workitems.outputs.create(repo_payload)
+                outputs_created = True
+            print(f"Created {len(rows)} work items from DataFrame")
+        else:
+            print("No data received from repos() function")
+
+        if not outputs_created:
+            print("No output work items were created. Check if repos() returned valid data.")
+        
+        # Mark the input item as done
+        item.done()
+        break  # Process only the first work item
 
 
 @task

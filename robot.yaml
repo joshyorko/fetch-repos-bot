@@ -2,8 +2,6 @@
 # https://github.com/robocorp/rcc/blob/master/docs/recipes.md#what-is-in-robotyaml
 
 tasks:
-  Repos:
-    shell: python -m robocorp.tasks run tasks.py -t repos
   Producer:
     shell: python -m robocorp.tasks run tasks.py -t producer
   Consumer:

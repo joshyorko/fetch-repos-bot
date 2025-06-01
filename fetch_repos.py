@@ -61,7 +61,7 @@ def fetch_github_repos(entity="robocorp", entity_type=None, write_csv=False):
                     "Description": repo.get("description"),
                     "Language": repo.get("language"),
                     "Stars": repo.get("stargazers_count"),
-                    "URL": repo.get("html_url"),
+                    "URL": repo.get("clone_url"),  # Use clone_url for git operations
                     "Created": repo.get("created_at"),
                     "Last Updated": repo.get("updated_at"),
                     "Is Fork": repo.get("fork", False)

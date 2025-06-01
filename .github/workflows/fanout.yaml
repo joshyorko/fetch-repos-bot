@@ -1,0 +1,47 @@
+name: Clone-and-Zip Fan-out
+
+on:
+  workflow_dispatch:
+    inputs:
+      batch_size: {description: 'Repos per consumer', required: true, default: '20'}
+
+jobs:
+# ---------- Producer ----------
+  producer:
+    runs-on: ubuntu-latest            # GitHub-hosted is fine
+    outputs:
+      matrix: ${{ steps.split.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Split repo list
+        id: split
+        run: |
+          python scripts/split_repos.py repos.txt ${{ inputs.batch_size }}
+          echo "matrix=$(cat matrix.json)" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: all-batches
+          path: batches/
+          retention-days: 1
+
+# ---------- Consumers ----------
+  consumer:
+    needs: producer
+    runs-on: [self-hosted, arc]       # ARC runner pod
+    strategy:
+      matrix: ${{ fromJson(needs.producer.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: all-batches
+          path: /tmp/batches
+      - name: Select my batch
+        run: cp /tmp/batches/${{ matrix.file }} /tmp/input.json
+      - name: Run Robocorp consumer
+        run: rcc run -t consumer
+      - uses: actions/upload-artifact@v4
+        with:
+          name: zips-batch-${{ matrix.batch }}
+          path: /tmp/workspace/*.zip
+          retention-days: 5
