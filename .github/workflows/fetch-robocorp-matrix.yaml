@@ -106,7 +106,7 @@ jobs:
           echo "Work items for shard ${{ matrix.shard_id }} are ready"
 
       - name: Run RCC Sharded Consumer
-        run: rcc run -t sharded_consumer -e devdata/env-for-sharded-consumer.json
+        run: rcc run -t "Shard" -e devdata/env-for-sharded-consumer.json
         env:
           ORG_NAME: ${{ inputs.org_name }}
           SHARD_ID: ${{ matrix.shard_id }}
