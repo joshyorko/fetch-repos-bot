@@ -84,7 +84,7 @@ def fetch_github_repos(entity="robocorp", entity_type=None, write_csv=False):
     df = pd.DataFrame(repo_list)
     
     if write_csv:
-        csv_filename = f"devdata/work-items-in/test-input-for-producer/repos.csv"
+        csv_filename = f"devdata/work-items-in/input-for-producer/repos.csv"
         df.to_csv(csv_filename, index=False)
         print(f"CSV file '{csv_filename}' created successfully with {len(repo_list)} repositories.")
     
