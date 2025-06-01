@@ -1,13 +1,13 @@
 from pathlib import Path
 from robocorp import workitems
 from robocorp.tasks import get_output_dir, task
-import pandas as pd
 import shutil
 import os
 import git
 from git import Repo
 from git.exc import GitCommandError
 from fetch_repos import fetch_github_repos
+import os
 
 
 
@@ -22,8 +22,7 @@ def repos(org_name):
 @task
 def producer():
     """Fetches repositories from GitHub org and creates work items for each repository."""
-    import os
-    output = get_output_dir() or Path("output")
+    
 
     # Process input work items to get organization name
     for item in workitems.inputs:
