@@ -8,6 +8,60 @@ from git import Repo
 from git.exc import GitCommandError
 from fetch_repos import fetch_github_repos
 import json
+import math
+from typing import List, Dict, Any
+
+def _shard_work_items(work_items: List[Dict[str, Any]], max_workers: int = 4) -> List[List[Dict[str, Any]]]:
+    """Shard work items into batches for parallel processing."""
+    if not work_items:
+        return []
+    
+    # Filter out empty work items
+    valid_work_items = [item for item in work_items if item.get('payload')]
+    
+    if not valid_work_items:
+        return []
+    
+    total_items = len(valid_work_items)
+    actual_workers = min(max_workers, total_items)
+    items_per_shard = math.ceil(total_items / actual_workers)
+    
+    print(f"Sharding {total_items} work items into {actual_workers} batches")
+    print(f"Approximately {items_per_shard} items per batch")
+    
+    # Create shards
+    shards = []
+    for i in range(0, total_items, items_per_shard):
+        shard = valid_work_items[i:i + items_per_shard]
+        shards.append(shard)
+    
+    return shards
+
+def _save_sharded_work_items(shards: List[List[Dict[str, Any]]], output_dir: str) -> Dict[str, Any]:
+    """Save sharded work items and generate matrix configuration."""
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
+    
+    # Clear existing shard files
+    for existing_file in output_path.glob("work-items-shard-*.json"):
+        existing_file.unlink()
+    
+    shard_info = []
+    
+    for i, shard in enumerate(shards):
+        shard_file = output_path / f"work-items-shard-{i}.json"
+        with open(shard_file, 'w') as f:
+            json.dump(shard, f)
+        print(f"Created shard {i}: {shard_file} with {len(shard)} items")
+        shard_info.append({"shard_id": i})
+    
+    # Save matrix configuration
+    matrix_config = {"include": shard_info}
+    matrix_file = output_path / "matrix-config.json"
+    with open(matrix_file, 'w') as f:
+        json.dump(matrix_config, f)
+    
+    return matrix_config
 
 def repos(org_name):
     """Fetches the list of repositories from GitHub and saves it to a CSV file."""
@@ -19,7 +73,7 @@ def repos(org_name):
 @task
 def producer():
     """Fetches repositories from GitHub org and creates work items for each repository."""
-    
+    all_work_items = []
 
     # Process input work items to get organization name
     for item in workitems.inputs:
@@ -40,8 +94,6 @@ def producer():
         # Get the DataFrame from repos() function
         df = repos(org_name)
 
-        outputs_created = False
-
         if df is not None and not df.empty:
             print(f"Processing {len(df)} repositories from DataFrame")
             rows = df.to_dict(orient="records")
@@ -56,19 +108,33 @@ def producer():
                     "Stars": row.get("Stars"),
                     "Is Fork": row.get("Is Fork")
                 }
-                workitems.outputs.create(repo_payload)
-                outputs_created = True
-            print(f"Created {len(rows)} work items from DataFrame")
+                # Instead of creating work items directly, collect them for sharding
+                all_work_items.append({"payload": repo_payload})
+            print(f"Collected {len(rows)} work items for sharding")
         else:
             print("No data received from repos() function")
-
-        if not outputs_created:
-            print("No output work items were created. Check if repos() returned valid data.")
         
         # Mark the input item as done
         item.done()
         break  # Process only the first work item
 
+    # Get max_workers from environment variable or use default
+    max_workers = int(os.getenv("MAX_WORKERS", "4"))
+    
+    # Shard the collected work items
+    shards = _shard_work_items(all_work_items, max_workers)
+    
+    # Save shards and generate matrix config to output directory
+    output = get_output_dir() or Path("output")
+    shards_dir = output / "shards"
+    matrix_config = _save_sharded_work_items(shards, str(shards_dir))
+    
+    # Output matrix configuration to output directory
+    matrix_output = output / "matrix-output.json"
+    with open(matrix_output, "w") as f:
+        json.dump({"matrix": matrix_config}, f)
+    print(f"Created matrix configuration with {len(shards)} shards")
+    print(f"Matrix configuration saved to: {matrix_output}")
 
 @task
 def consumer():
