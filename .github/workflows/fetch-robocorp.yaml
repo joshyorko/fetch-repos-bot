@@ -42,7 +42,7 @@ jobs:
           ORG_NAME: ${{ inputs.org_name }}
 
       - name: Upload output directory (producer)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: output
           path: output/
@@ -70,9 +70,10 @@ jobs:
 
 
       - name: Download producer output
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4.3.0
         with:
           name: output
+          path: output # Ensures artifact contents are placed in an 'output' directory
 
       - name: Run RCC Consumer
         run: rcc run -t consumer -e devdata/env-for-consumer.json
@@ -80,7 +81,7 @@ jobs:
           ORG_NAME: ${{ inputs.org_name }}
 
       - name: Upload output directory (consumer)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.6.2
         with:
           name: output-consumer-${{ inputs.org_name }}
           path: output/
