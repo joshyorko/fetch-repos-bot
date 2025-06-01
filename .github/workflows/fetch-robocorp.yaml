@@ -29,8 +29,7 @@ jobs:
             echo "RCC is already installed."
           fi
 
-      - name: Make start.sh executable
-        run: chmod +x start.sh
+
 
       - name: Generate input work item for producer
         run: |
@@ -68,8 +67,7 @@ jobs:
             echo "RCC is already installed."
           fi
 
-      - name: Make start.sh executable
-        run: chmod +x start.sh
+
 
       - name: Download producer output
         uses: actions/download-artifact@v4
