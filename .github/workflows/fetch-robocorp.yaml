@@ -45,7 +45,7 @@ jobs:
       - name: Upload output directory (producer)
         uses: actions/upload-artifact@v4
         with:
-          name: output-producer-${{ inputs.org_name }}
+          name: output
           path: output/
 
   consumer:
@@ -70,6 +70,11 @@ jobs:
 
       - name: Make start.sh executable
         run: chmod +x start.sh
+
+      - name: Download producer output
+        uses: actions/download-artifact@v4
+        with:
+          name: output
 
       - name: Run RCC Consumer
         run: rcc run -t consumer -e devdata/env-for-consumer.json
