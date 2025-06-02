@@ -6,10 +6,7 @@ on:
       org_name:
         description: 'Organization name to fetch repositories from'
         default: 'joshyorko'
-      max_workers:
-        description: 'Maximum number of parallel workers'
-        default: '4'
-        type: string
+
 
 jobs:
   producer:
@@ -39,7 +36,7 @@ jobs:
         run: rcc run -t producer -e devdata/env-for-producer.json
         env:
           ORG_NAME: ${{ inputs.org_name }}
-          MAX_WORKERS: ${{ inputs.max_workers }}
+
 
       - name: Get matrix configuration
         id: get-matrix
