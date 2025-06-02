@@ -88,6 +88,7 @@ jobs:
       - name: Setup work items for this shard
         run: |
           mkdir -p devdata/work-items-in/shard-input/
+          mkdir -p output/consumer-shard-output/
           cp output/shards/work-items-shard-${{ matrix.shard_id }}.json devdata/work-items-in/shard-input/work-items.json
 
       - name: Run RCC Sharded Consumer
@@ -99,7 +100,7 @@ jobs:
         uses: actions/upload-artifact@v4.6.2
         with:
           name: shard-output-${{ matrix.shard_id }}
-          path: output/consumer-shard-output/
+          path: output
 
   combine:
     runs-on: arc-runner-fetch-repos-bot
