@@ -44,10 +44,11 @@ jobs:
       - name: Get matrix configuration
         id: get-matrix
         run: |
-          MATRIX=$(cat output/matrix-output.json | jq '.matrix')
-          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
-          SHARD_COUNT=$(echo "$MATRIX" | jq '.include | length')
-          echo "shard_count=$SHARD_COUNT" >> $GITHUB_OUTPUT
+          cat output/matrix-output.json
+          MATRIX=$(cat output/matrix-output.json)
+          echo "matrix=${MATRIX}" >> $GITHUB_OUTPUT
+          SHARD_COUNT=$(echo "${MATRIX}" | jq '.matrix.include | length')
+          echo "shard_count=${SHARD_COUNT}" >> $GITHUB_OUTPUT
 
       - name: Upload producer output
         uses: actions/upload-artifact@v4.6.2
