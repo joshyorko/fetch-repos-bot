@@ -44,8 +44,7 @@ jobs:
       - name: Get matrix configuration
         id: get-matrix
         run: |
-          cat output/matrix-output.json
-          MATRIX=$(cat output/matrix-output.json)
+          MATRIX=$(jq -c . output/matrix-output.json)
           echo "matrix=${MATRIX}" >> $GITHUB_OUTPUT
           SHARD_COUNT=$(echo "${MATRIX}" | jq '.matrix.include | length')
           echo "shard_count=${SHARD_COUNT}" >> $GITHUB_OUTPUT
@@ -64,7 +63,7 @@ jobs:
     if: needs.producer.outputs.shard_count > 0
     strategy:
       matrix: ${{ fromJson(needs.producer.outputs.matrix).matrix }}
-      max-parallel: 4
+      max-parallel: ${{ inputs.max_workers }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -105,11 +104,15 @@ jobs:
   combine:
     runs-on: arc-runner-fetch-repos-bot
     needs: [producer, consumer]
-    if: always() && needs.producer.result == 'success'
+    if: needs.producer.outputs.shard_count > 0
     steps:
       - name: Download all shard outputs
-        uses: actions/download-artifact@v4.3.0
+        uses: actions/download-artifact@v4
         with:
           path: all-outputs/
           pattern: shard-output-*
           merge-multiple: true
+      - name: List merged files
+        run: |
+          echo "Merged files:"
+          find all-outputs -type f || true
