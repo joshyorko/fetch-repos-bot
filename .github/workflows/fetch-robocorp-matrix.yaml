@@ -82,8 +82,8 @@ jobs:
       - name: Download sharded work items
         uses: actions/download-artifact@v4.3.0
         with:
-          name: sharded-work-items
-          path: output
+          name: producer-output
+          path: output/
 
       - name: Setup work items for this shard
         run: |
