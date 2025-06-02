@@ -8,9 +8,8 @@ on:
         default: 'joshyorko'
       max_workers:
         description: 'Maximum number of parallel workers'
-        default: 4
-        type: number
-
+        default: '4'
+        type: string
 
 jobs:
   producer:
@@ -37,7 +36,6 @@ jobs:
           mkdir -p devdata/work-items-in/test-input-for-producer
           echo '[{"payload": {"org": "${{ inputs.org_name }}"}}]' > devdata/work-items-in/test-input-for-producer/work-items.json
 
-
       - name: Run RCC Producer
         run: rcc run -t producer -e devdata/env-for-producer.json
         env:
@@ -47,7 +45,8 @@ jobs:
       - name: Get matrix configuration
         id: get-matrix
         run: |
-          MATRIX=$(jq -c . output/matrix-output.json)
+          cat output/matrix-output.json
+          MATRIX=$(cat output/matrix-output.json)
           echo "matrix=${MATRIX}" >> $GITHUB_OUTPUT
           SHARD_COUNT=$(echo "${MATRIX}" | jq '.matrix.include | length')
           echo "shard_count=${SHARD_COUNT}" >> $GITHUB_OUTPUT
@@ -65,9 +64,8 @@ jobs:
     needs: producer
     if: needs.producer.outputs.shard_count > 0
     strategy:
-      fail-fast: false
-      max-parallel: ${{ inputs.max_workers }}
-      matrix: ${{ fromJSON(needs.producer.outputs.matrix) }}
+      matrix: ${{ fromJson(needs.producer.outputs.matrix).matrix }}
+      max-parallel: 4
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -108,15 +106,11 @@ jobs:
   combine:
     runs-on: arc-runner-fetch-repos-bot
     needs: [producer, consumer]
-    if: needs.producer.outputs.shard_count > 0
+    if: always() && needs.producer.result == 'success'
     steps:
       - name: Download all shard outputs
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4.3.0
         with:
           path: all-outputs/
           pattern: shard-output-*
           merge-multiple: true
-      - name: List merged files
-        run: |
-          echo "Merged files:"
-          find all-outputs -type f || true
