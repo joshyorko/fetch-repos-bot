@@ -72,11 +72,7 @@ def repos(org_name):
 
 @task
 def producer():
-    """Fetches repositories from GitHub org, creates work items, saves to artifacts, and generates matrix config."""
-    output = get_output_dir() or Path("output")
-    
-    work_items_data = []
-    
+    """Fetches repositories from GitHub org and creates work items."""
     # Process input work items to get organization name
     for item in workitems.inputs:
         payload = item.payload
@@ -109,44 +105,15 @@ def producer():
                     "Stars": row.get("Stars"),
                     "Is Fork": row.get("Is Fork")
                 }
-                work_items_data.append({"payload": repo_payload})
-            print(f"Collected {len(rows)} work items")
+                # Create normal work items
+                workitems.outputs.create(repo_payload)
+            print(f"Created {len(rows)} work items")
         else:
             print("No data received from repos() function")
         
         # Mark the input item as done
         item.done()
         break
-    
-    # Save work items to artifacts for matrix processing
-    if work_items_data:
-        work_items_file = output / "work-items.json"
-        with open(work_items_file, 'w') as f:
-            json.dump(work_items_data, f)
-        print(f"Saved {len(work_items_data)} work items to {work_items_file}")
-        
-        # Generate shards and matrix config
-        max_workers = int(os.getenv("MAX_WORKERS", "4"))
-        shards = _shard_work_items(work_items_data, max_workers)
-        
-        # Save shards
-        shards_dir = output / "shards"
-        matrix_config = _save_sharded_work_items(shards, str(shards_dir))
-        
-        # Save matrix output for GitHub Actions
-        matrix_output_file = output / "matrix-output.json"
-        matrix_output = {"matrix": matrix_config}
-        with open(matrix_output_file, 'w') as f:
-            json.dump(matrix_output, f)
-        
-        print(f"Generated matrix config with {len(shards)} shards")
-        print(f"Matrix output saved to: {matrix_output_file}")
-    else:
-        # Create empty matrix if no work items
-        matrix_output_file = output / "matrix-output.json"
-        with open(matrix_output_file, 'w') as f:
-            json.dump({"matrix": {"include": []}}, f)
-        print("No work items found - created empty matrix")
 
 @task
 def consumer():
