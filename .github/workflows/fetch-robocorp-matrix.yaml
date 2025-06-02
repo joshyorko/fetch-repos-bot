@@ -6,6 +6,10 @@ on:
       org_name:
         description: 'Organization name to fetch repositories from'
         default: 'joshyorko'
+      max_workers:
+        description: 'Maximum number of parallel workers'
+        default: 4
+        type: number
 
 
 jobs:
@@ -31,12 +35,14 @@ jobs:
       - name: Generate input work item for producer
         run: |
           mkdir -p devdata/work-items-in/test-input-for-producer
+          echo '[{"payload": {"org": "${{ inputs.org_name }}"}}]' > devdata/work-items-in/test-input-for-producer/work-items.json
+
 
       - name: Run RCC Producer
         run: rcc run -t producer -e devdata/env-for-producer.json
         env:
           ORG_NAME: ${{ inputs.org_name }}
-
+          MAX_WORKERS: ${{ inputs.max_workers }}
 
       - name: Get matrix configuration
         id: get-matrix
@@ -59,7 +65,7 @@ jobs:
     needs: producer
     if: needs.producer.outputs.shard_count > 0
     strategy:
-      matrix: ${{ fromJson(needs.producer.outputs.matrix).matrix }}
+      matrix: ${{ fromJSON(needs.producer.outputs.matrix) }}
       max-parallel: ${{ inputs.max_workers }}
     steps:
       - name: Checkout repository
