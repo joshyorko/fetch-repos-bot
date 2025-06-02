@@ -92,8 +92,8 @@ jobs:
         env:
           SHARD_ID: ${{ matrix.shard_id }}
 
-      - name: Run RCC Sharded Consumer
-        run: rcc run -t "Shard" -e devdata/env-for-sharded-consumer.json
+      - name: Run RCC Consumer
+        run: rcc run -t consumer -e devdata/env-for-consumer.json
         env:
           SHARD_ID: ${{ matrix.shard_id }}
 

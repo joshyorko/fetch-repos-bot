@@ -152,12 +152,17 @@ def producer():
 def consumer():
     """Clones all the repositories from the input Work Items and zips them and saves them to the output directory."""
     output = get_output_dir() or Path("output")
-    filename = "repos.zip"
-    repos_dir = output / "repos"
+    
+    # Get shard ID for unique naming
+    shard_id = os.getenv("SHARD_ID", "0")
+    filename = f"repos-shard-{shard_id}.zip"
+    repos_dir = output / f"repos-shard-{shard_id}"
     output_path = output / filename
 
     # Create output directories if they don't exist
     repos_dir.mkdir(parents=True, exist_ok=True)
+    
+    processed_repos = []
     
     for item in workitems.inputs:
         try:
@@ -173,16 +178,27 @@ def consumer():
                 continue
             repo_name = url.split('/')[-1].replace('.git', '')
             repo_path = repos_dir / repo_name
-            print(f"Cloning repository: {repo_name}")
+            print(f"[Shard {shard_id}] Cloning repository: {repo_name}")
             
             try:
                 # Clone with GitPython, showing progress (if supported)
                 Repo.clone_from(url, repo_path)
-                print(f"Successfully cloned: {repo_name}")
+                print(f"[Shard {shard_id}] Successfully cloned: {repo_name}")
+                processed_repos.append({
+                    "name": repo_name,
+                    "url": url,
+                    "status": "success"
+                })
                 item.done()
             except GitCommandError as git_err:
                 error_msg = f"Git error while cloning {repo_name}: {str(git_err)}"
-                print(error_msg)
+                print(f"[Shard {shard_id}] {error_msg}")
+                processed_repos.append({
+                    "name": repo_name,
+                    "url": url,
+                    "status": "failed",
+                    "error": error_msg
+                })
                 item.fail("BUSINESS", code="GIT_ERROR", message=error_msg)
                 continue
                 
@@ -195,21 +211,38 @@ def consumer():
     git_repos = [d for d in os.listdir(repos_dir) if os.path.isdir(os.path.join(repos_dir, d)) 
                  and os.path.exists(os.path.join(repos_dir, d, '.git'))]
     
+    # Save processing report
+    report_path = output / f"shard-{shard_id}-report.json"
+    report = {
+        "shard_id": shard_id,
+        "total_processed": len(processed_repos),
+        "successful_clones": len(git_repos),
+        "failed_clones": len([r for r in processed_repos if r["status"] == "failed"]),
+        "repositories": processed_repos
+    }
+    
+    with open(report_path, 'w') as f:
+        json.dump(report, f, indent=2)
+    
+    print(f"[Shard {shard_id}] Processing report saved to: {report_path}")
+    
     if git_repos:
-        print(f"Creating zip archive of {len(git_repos)} repositories...")
+        print(f"[Shard {shard_id}] Creating zip archive of {len(git_repos)} repositories...")
         try:
             # Create the zip file containing all repositories
             shutil.make_archive(str(output_path.with_suffix('')), 'zip', 
                               root_dir=str(repos_dir), base_dir=None)
-            print(f"Successfully created archive at: {output_path}")
+            print(f"[Shard {shard_id}] Successfully created archive at: {output_path}")
             
             # Clean up: remove the cloned repositories after zipping
-            print("Cleaning up cloned repositories...")
+            print(f"[Shard {shard_id}] Cleaning up cloned repositories...")
             shutil.rmtree(repos_dir)
-            print("Cleanup complete")
+            print(f"[Shard {shard_id}] Cleanup complete")
         except Exception as e:
-            print(f"Error during archive creation or cleanup: {str(e)}")
+            print(f"[Shard {shard_id}] Error during archive creation or cleanup: {str(e)}")
             raise
+    else:
+        print(f"[Shard {shard_id}] No repositories to archive")
 
 @task 
 def sharded_consumer():
