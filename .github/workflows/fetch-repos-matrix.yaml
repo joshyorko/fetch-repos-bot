@@ -23,13 +23,15 @@ jobs:
         with:
           clean: true
 
-      - name: Ensure RCC is installed
+      - name: Ensure RCC is installed and telemetry disabled
         run: |
           if ! command -v rcc &> /dev/null; then
             sudo mv rcc /usr/local/bin/
           else
             echo "RCC is already installed."
           fi
+          echo "Disabling RCC telemetry..."
+          rcc config identity -t
 
       - name: Generate input work item for producer
         run: |
@@ -114,13 +116,15 @@ jobs:
         with:
           clean: true
 
-      - name: Ensure RCC is installed
+      - name: Ensure RCC is installed and telemetry disabled
         run: |
           if ! command -v rcc &> /dev/null; then
             sudo mv rcc /usr/local/bin/
           else
             echo "RCC is already installed."
           fi
+          echo "Disabling RCC telemetry..."
+          rcc config identity -t
 
       - name: Download sharded work items
         uses: actions/download-artifact@v4.3.0
