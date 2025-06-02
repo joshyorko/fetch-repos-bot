@@ -50,7 +50,7 @@ jobs:
           import math
           
           # Read work items from producer output
-          with open('ooutput/producer-to-consumer/work-items.json', 'r') as f:
+          with open('output/producer-to-consumer/work-items.json', 'r') as f:
               work_items = json.load(f)
           
           max_workers = int('${{ inputs.max_workers }}')
