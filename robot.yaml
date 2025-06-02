@@ -6,8 +6,7 @@ tasks:
     shell: python -m robocorp.tasks run tasks.py -t producer
   Consumer:
     shell: python -m robocorp.tasks run tasks.py -t consumer
-  Shard:
-    shell: python -m robocorp.tasks run tasks.py -t sharded_consumer
+
 
 
 environmentConfigs:
