@@ -88,9 +88,9 @@ jobs:
 
       - name: Setup work items for this shard
         run: |
-          mkdir -p devdata/work-items-in/shard-input/
-          mkdir -p output/consumer-shard-output/
-          cp output/shards/work-items-shard-${{ matrix.shard_id }}.json devdata/work-items-in/shard-input/work-items.json
+          python3 shard_loader.py
+        env:
+          SHARD_ID: ${{ matrix.shard_id }}
 
       - name: Run RCC Sharded Consumer
         run: rcc run -t "Shard" -e devdata/env-for-sharded-consumer.json

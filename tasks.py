@@ -72,9 +72,11 @@ def repos(org_name):
 
 @task
 def producer():
-    """Fetches repositories from GitHub org and creates work items for each repository."""
-    all_work_items = []
-
+    """Fetches repositories from GitHub org, creates work items, saves to artifacts, and generates matrix config."""
+    output = get_output_dir() or Path("output")
+    
+    work_items_data = []
+    
     # Process input work items to get organization name
     for item in workitems.inputs:
         payload = item.payload
@@ -83,7 +85,6 @@ def producer():
         
         org_name = payload.get("org")
         if not org_name:
-            # Fallback: check for ORG_NAME environment variable (for GitHub Actions)
             org_name = os.getenv("ORG_NAME")
         
         if not org_name:
@@ -108,33 +109,44 @@ def producer():
                     "Stars": row.get("Stars"),
                     "Is Fork": row.get("Is Fork")
                 }
-                # Instead of creating work items directly, collect them for sharding
-                all_work_items.append({"payload": repo_payload})
-            print(f"Collected {len(rows)} work items for sharding")
+                work_items_data.append({"payload": repo_payload})
+            print(f"Collected {len(rows)} work items")
         else:
             print("No data received from repos() function")
         
         # Mark the input item as done
         item.done()
-        break  # Process only the first work item
-
-    # Get max_workers from environment variable or use default
-    max_workers = int(os.getenv("MAX_WORKERS", "4"))
+        break
     
-    # Shard the collected work items
-    shards = _shard_work_items(all_work_items, max_workers)
-    
-    # Save shards and generate matrix config to output directory
-    output = get_output_dir() or Path("output")
-    shards_dir = output / "shards"
-    matrix_config = _save_sharded_work_items(shards, str(shards_dir))
-    
-    # Output matrix configuration to output directory
-    matrix_output = output / "matrix-output.json"
-    with open(matrix_output, "w") as f:
-        json.dump({"matrix": matrix_config}, f)
-    print(f"Created matrix configuration with {len(shards)} shards")
-    print(f"Matrix configuration saved to: {matrix_output}")
+    # Save work items to artifacts for matrix processing
+    if work_items_data:
+        work_items_file = output / "work-items.json"
+        with open(work_items_file, 'w') as f:
+            json.dump(work_items_data, f)
+        print(f"Saved {len(work_items_data)} work items to {work_items_file}")
+        
+        # Generate shards and matrix config
+        max_workers = int(os.getenv("MAX_WORKERS", "4"))
+        shards = _shard_work_items(work_items_data, max_workers)
+        
+        # Save shards
+        shards_dir = output / "shards"
+        matrix_config = _save_sharded_work_items(shards, str(shards_dir))
+        
+        # Save matrix output for GitHub Actions
+        matrix_output_file = output / "matrix-output.json"
+        matrix_output = {"matrix": matrix_config}
+        with open(matrix_output_file, 'w') as f:
+            json.dump(matrix_output, f)
+        
+        print(f"Generated matrix config with {len(shards)} shards")
+        print(f"Matrix output saved to: {matrix_output_file}")
+    else:
+        # Create empty matrix if no work items
+        matrix_output_file = output / "matrix-output.json"
+        with open(matrix_output_file, 'w') as f:
+            json.dump({"matrix": {"include": []}}, f)
+        print("No work items found - created empty matrix")
 
 @task
 def consumer():
@@ -295,4 +307,59 @@ def sharded_consumer():
             raise
     else:
         print(f"[Shard {shard_id}] No repositories to archive")
+
+@task
+def shard_work_items():
+    """Reads work items from artifacts and creates sharded work items for parallel processing."""
+    output = get_output_dir() or Path("output")
+    
+    # Load work items from artifacts (uploaded by producer)
+    work_items_file = output / "work-items.json"
+    if not work_items_file.exists():
+        raise FileNotFoundError(f"Work items file not found: {work_items_file}")
+    
+    with open(work_items_file, 'r') as f:
+        work_items = json.load(f)
+    
+    print(f"Loaded {len(work_items)} work items from artifacts")
+    
+    # Get max_workers from environment variable or use default
+    max_workers = int(os.getenv("MAX_WORKERS", "4"))
+    
+    # Shard the work items
+    shards = _shard_work_items(work_items, max_workers)
+    
+    # Save shards to output directory
+    shards_dir = output / "shards"
+    matrix_config = _save_sharded_work_items(shards, str(shards_dir))
+    
+    # Save matrix configuration for GitHub Actions
+    matrix_output = output / "matrix-config.json"
+    with open(matrix_output, "w") as f:
+        json.dump(matrix_config, f)
+    
+    print(f"Created {len(shards)} shards")
+    print(f"Matrix configuration saved to: {matrix_output}")
+
+@task
+def load_shard_consumer():
+    """Loads a specific shard and processes it through the consumer."""
+    output = get_output_dir() or Path("output")
+    shard_id = os.getenv("SHARD_ID", "0")
+    
+    # Load shard file
+    shard_file = output / "shards" / f"work-items-shard-{shard_id}.json"
+    if not shard_file.exists():
+        raise FileNotFoundError(f"Shard file not found: {shard_file}")
+    
+    with open(shard_file, 'r') as f:
+        shard_items = json.load(f)
+    
+    print(f"[Shard {shard_id}] Loaded {len(shard_items)} items")
+    
+    # Create work items for this shard
+    for item_data in shard_items:
+        workitems.outputs.create(item_data["payload"])
+    
+    print(f"[Shard {shard_id}] Created {len(shard_items)} work items for processing")
 
