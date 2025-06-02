@@ -102,15 +102,3 @@ jobs:
         with:
           name: shard-output-${{ matrix.shard_id }}
           path: output
-
-  combine:
-    runs-on: arc-runner-fetch-repos-bot
-    needs: [producer, consumer]
-    if: always() && needs.producer.result == 'success'
-    steps:
-      - name: Download all shard outputs
-        uses: actions/download-artifact@v4.3.0
-        with:
-          path: all-outputs/
-          pattern: shard-output-*
-          merge-multiple: true
