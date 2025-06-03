@@ -6,7 +6,7 @@ import os
 import git
 from git import Repo
 from git.exc import GitCommandError
-from fetch_repos import fetch_github_repos
+from scripts.fetch_repos import fetch_github_repos
 import json
 import math
 from typing import List, Dict, Any
