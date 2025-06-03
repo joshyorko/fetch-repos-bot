@@ -22,16 +22,23 @@ jobs:
         uses: actions/checkout@v4
         with:
           clean: true
-
-      - name: Ensure RCC is installed and telemetry disabled
+        
+      - name: Ensure RCC is installed
         run: |
           if ! command -v rcc &> /dev/null; then
-            sudo mv rcc /usr/local/bin/
-          else
-            echo "RCC is already installed."
-          fi
+          echo "RCC not found. Downloading..."
+          curl -o rcc https://downloads.robocorp.com/rcc/releases/latest/linux64/rcc
+          chmod +x rcc
+          sudo mv rcc /usr/local/bin/
+            else
+          echo "RCC is already installed."
+            fi
+            
+      - name: Disable RCC telemetry
+        run: |
           echo "Disabling RCC telemetry..."
           rcc config identity -t
+
 
       - name: Generate input work item for producer
         run: |
