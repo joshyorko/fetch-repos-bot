@@ -22,23 +22,22 @@ jobs:
         uses: actions/checkout@v4
         with:
           clean: true
-        
+
       - name: Ensure RCC is installed
         run: |
           if ! command -v rcc &> /dev/null; then
-          echo "RCC not found. Downloading..."
-          curl -o rcc https://downloads.robocorp.com/rcc/releases/latest/linux64/rcc
-          chmod +x rcc
-          sudo mv rcc /usr/local/bin/
-            else
-          echo "RCC is already installed."
-            fi
-            
+            echo "RCC not found. Downloading..."
+            curl -o rcc https://downloads.robocorp.com/rcc/releases/latest/linux64/rcc
+            chmod +x rcc
+            sudo mv rcc /usr/local/bin/
+          else
+            echo "RCC is already installed."
+          fi
+
       - name: Disable RCC telemetry
         run: |
           echo "Disabling RCC telemetry..."
           rcc config identity -t
-
 
       - name: Generate input work item for producer
         run: |
@@ -57,39 +56,30 @@ jobs:
           import os
           from pathlib import Path
           import math
-          
           # Read work items from producer output
           with open('output/producer-to-consumer/work-items.json', 'r') as f:
               work_items = json.load(f)
-          
           max_workers = int('${{ inputs.max_workers }}')
           total = len(work_items)
           per_shard = math.ceil(total / max_workers) if total > 0 else 0
-          
           # Create shards
           shards_dir = Path('output/shards')
           shards_dir.mkdir(exist_ok=True)
-          
           matrix_include = []
           for i in range(max_workers):
               start_idx = i * per_shard
               end_idx = min(start_idx + per_shard, total)
-              
               if start_idx < total:
                   shard_items = work_items[start_idx:end_idx]
                   shard_file = shards_dir / f'work-items-shard-{i}.json'
-                  
                   with open(shard_file, 'w') as f:
                       json.dump(shard_items, f)
-                  
                   matrix_include.append({'shard_id': i})
                   print(f'Created shard {i} with {len(shard_items)} items')
-          
           # Save matrix config
           matrix_config = {'matrix': {'include': matrix_include}}
           with open('output/matrix-output.json', 'w') as f:
               json.dump(matrix_config, f)
-          
           print(f'Generated matrix with {len(matrix_include)} shards')
           "
 
@@ -108,8 +98,6 @@ jobs:
           name: producer-output
           path: output/
 
-    
-
   consumer:
     runs-on: arc-runner-k8s
     needs: producer
@@ -123,13 +111,19 @@ jobs:
         with:
           clean: true
 
-      - name: Ensure RCC is installed and telemetry disabled
+      - name: Ensure RCC is installed
         run: |
           if ! command -v rcc &> /dev/null; then
+            echo "RCC not found. Downloading..."
+            curl -o rcc https://downloads.robocorp.com/rcc/releases/latest/linux64/rcc
+            chmod +x rcc
             sudo mv rcc /usr/local/bin/
           else
             echo "RCC is already installed."
           fi
+
+      - name: Disable RCC telemetry
+        run: |
           echo "Disabling RCC telemetry..."
           rcc config identity -t
 
@@ -148,12 +142,8 @@ jobs:
       - name: Update consumer env file for shard
         run: |
           SHARD_PATH="output/shards/work-items-shard-${{ matrix.shard_id }}.json"
-          echo "{
-            \"RC_WORKITEM_ADAPTER\": \"FileAdapter\",
-            \"RC_WORKITEM_INPUT_PATH\": \"$SHARD_PATH\",
-            \"RC_WORKITEM_OUTPUT_PATH\": \"output/consumer-to-reporter/work-items-${{ matrix.shard_id }}.json\"
-          }" > devdata/env-for-consumer.json
-          
+          echo "{\n  \"RC_WORKITEM_ADAPTER\": \"FileAdapter\",\n  \"RC_WORKITEM_INPUT_PATH\": \"$SHARD_PATH\",\n  \"RC_WORKITEM_OUTPUT_PATH\": \"output/consumer-to-reporter/work-items-${{ matrix.shard_id }}.json\"\n}" > devdata/env-for-consumer.json
+
       - name: Run RCC Consumer
         run: rcc run -t consumer -e devdata/env-for-consumer.json
         env:
