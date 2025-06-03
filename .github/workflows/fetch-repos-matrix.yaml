@@ -112,8 +112,12 @@ jobs:
       - name: Update consumer env file for shard
         run: |
           SHARD_PATH="output/shards/work-items-shard-${{ matrix.shard_id }}.json"
-          echo "{\n  \"RC_WORKITEM_ADAPTER\": \"FileAdapter\",\n  \"RC_WORKITEM_INPUT_PATH\": \"$SHARD_PATH\",\n  \"RC_WORKITEM_OUTPUT_PATH\": \"output/consumer-to-reporter/work-items-${{ matrix.shard_id }}.json\"\n}" > devdata/env-for-consumer.json
-
+          echo "{
+            \"RC_WORKITEM_ADAPTER\": \"FileAdapter\",
+            \"RC_WORKITEM_INPUT_PATH\": \"$SHARD_PATH\",
+            \"RC_WORKITEM_OUTPUT_PATH\": \"output/consumer-to-reporter/work-items-${{ matrix.shard_id }}.json\"
+          }" > devdata/env-for-consumer.json
+          
       - name: Run RCC Consumer
         run: rcc run -t consumer -e devdata/env-for-consumer.json
         env:
