@@ -9,9 +9,9 @@ jobs:
     strategy:
       matrix:
         runner:
-          - arc-runner-k8s-4gf7b-runner-2cdrf
-          - arc-runner-k8s-4gf7b-runner-bcmm4
-          - arc-runner-k8s-4gf7b-runner-jzw7z
+          - arc-runner-k8s
+          - arc-runner-k8s
+          - arc-runner-k8s
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
