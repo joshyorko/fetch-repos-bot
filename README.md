@@ -5,11 +5,12 @@ author: Joshua Yorko, [@joshyorko](https://github.com/joshyorko), joshua.yorko@g
 
 # fetch-repos-bot
 
+[![Open in DevPod!](https://devpod.sh/assets/open-in-devpod.svg)](https://devpod.sh/open#https://github.com/joshyorko/fetch-repos-bot)
+
 <p align="center">
   <img src="assets/logo.png" alt="Project Logo" width="600"/>
 </p>
 
-[![Open in DevPod!](https://devpod.sh/assets/open-in-devpod.svg)](https://devpod.sh/open#https://github.com/joshyorko/fetch-repos-bot)
 
 ## Overview
 **fetch-repos-bot** is an automated Robocorp-based solution for fetching, processing, and managing GitHub repositories from a specified organization. It leverages a robust producer-consumer pattern, supports parallel execution via matrix sharding, and is designed for scalable RPA (Robotic Process Automation) workflows using RCC, Python, and GitHub Actions.
