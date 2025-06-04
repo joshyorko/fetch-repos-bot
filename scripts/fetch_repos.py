@@ -17,7 +17,11 @@ def fetch_github_repos(entity="robocorp", entity_type=None, write_csv=False):
     if entity_type is None:
         # Try to determine if it's an org or user
         test_url = f"https://api.github.com/orgs/{entity}"
-        test_response = requests.get(test_url)
+        try:
+            test_response = requests.get(test_url, timeout=REQUEST_TIMEOUT)
+        except requests.exceptions.Timeout:
+            print("Request timed out while determining entity type.")
+            return pd.DataFrame()
         entity_type = "org" if test_response.status_code == 200 else "user"
     
     # Set the appropriate API endpoint
@@ -39,7 +43,11 @@ def fetch_github_repos(entity="robocorp", entity_type=None, write_csv=False):
             "sort": "updated",
             "direction": "desc"
         }
-        response = requests.get(url, headers=headers, params=params)
+        try:
+            response = requests.get(url, headers=headers, params=params, timeout=10)
+        except requests.exceptions.Timeout:
+            print(f"Request timed out while fetching page {page}.")
+            break
         
         # Handle rate limiting
         if response.status_code == 403 and "rate limit exceeded" in response.text.lower():
