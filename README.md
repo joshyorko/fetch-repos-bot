@@ -69,12 +69,14 @@ author: Joshua Yorko, [@joshyorko](https://github.com/joshyorko), joshua.yorko@g
 
 2. **Run the Pipeline:**
    ```bash
-   ./start.sh
+   ./start.sh [MAX_WORKERS]
    ```
-   This will:
-   - Run the producer task
-   - Generate shards and matrix
-   - Run the consumer task
+   - `MAX_WORKERS` (optional) sets how many shards to create. Defaults to `3`.
+   - Set `ORG_NAME` before running if you want to override the organization used
+     for the producer.
+
+   The script now runs the consumer once for each shard so you can test the
+   sharding workflow locally.
 
 3. **Custom Execution:**
    - You can run individual tasks using RCC or Python as defined in `robot.yaml`.
