@@ -18,7 +18,7 @@ def fetch_github_repos(entity="robocorp", entity_type=None, write_csv=False):
         # Try to determine if it's an org or user
         test_url = f"https://api.github.com/orgs/{entity}"
         try:
-            test_response = requests.get(test_url, timeout=10)
+            test_response = requests.get(test_url, timeout=REQUEST_TIMEOUT)
         except requests.exceptions.Timeout:
             print("Request timed out while determining entity type.")
             return pd.DataFrame()
