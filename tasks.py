@@ -3,15 +3,10 @@ from robocorp import workitems
 from robocorp.tasks import get_output_dir, task
 import shutil
 import os
-import git
 from git import Repo
 from git.exc import GitCommandError
 from scripts.fetch_repos import fetch_github_repos
 import json
-import math
-from typing import List, Dict, Any
-
-
 
 
 def repos(org_name):
