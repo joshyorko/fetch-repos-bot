@@ -64,7 +64,6 @@ def producer():
         
         # Mark the input item as done
         item.done()
-        break
 
 @task
 def consumer():
