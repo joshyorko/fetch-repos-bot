@@ -2,6 +2,7 @@
 title: fetch-repos-bot - Automated GitHub Repo Fetching & RPA Pipeline
 author: Joshua Yorko, [@joshyorko](https://github.com/joshyorko), joshua.yorko@gmail.com
 ---
+[![Open in DevPod!](https://devpod.sh/assets/open-in-devpod.svg)](https://devpod.sh/open#https://github.com/joshyorko/fetch-repos-bot)
 
 # fetch-repos-bot
 
