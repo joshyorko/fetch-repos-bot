@@ -15,7 +15,7 @@ from typing import List, Dict, Any
 
 
 def repos(org_name):
-    """Fetches the list of repositories from GitHub and saves it to a CSV file."""
+    """Fetch the list of repositories from GitHub and return a DataFrame."""
     if not org_name:
         raise ValueError("Organization name is required.")
     print(f"Fetching repositories for organization: {org_name}")
