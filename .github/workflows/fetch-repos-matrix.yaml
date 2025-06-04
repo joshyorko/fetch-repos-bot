@@ -73,7 +73,7 @@ jobs:
     needs: producer
     if: needs.producer.outputs.shard_count > 0
     strategy:
-      matrix: ${{ fromJson(needs.producer.outputs.matrix).matrix }}
+      matrix: ${{ fromJSON(needs.producer.outputs.matrix).matrix }}
       max-parallel: ${{ fromJSON(inputs.max_workers) }}
     steps:
       - name: Checkout repository
