@@ -33,7 +33,7 @@ jobs:
 
       - name: Generate input work item for producer
         run: |
-          mkdir -p devdata/work-items-in/test-input-for-producer
+          mkdir -p devdata/work-items-in/input-for-producer
           echo '[{"payload": {"org": "${{ inputs.org_name }}"}}]' > devdata/work-items-in/input-for-producer/work-items.json
 
       - name: Run RCC Producer
