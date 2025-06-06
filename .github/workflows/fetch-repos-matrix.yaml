@@ -13,7 +13,7 @@ on:
 
 jobs:
   producer:
-    runs-on: arc-runner-k8s
+    runs-on: fetch-repos-bot-runner-k8s
     outputs:
       matrix: ${{ steps.get-matrix.outputs.matrix }}
       shard_count: ${{ steps.get-matrix.outputs.shard_count }}
@@ -69,7 +69,7 @@ jobs:
           path: output/
 
   consumer:
-    runs-on: arc-runner-k8s
+    runs-on: fetch-repos-bot-runner-k8s
     needs: producer
     if: needs.producer.outputs.shard_count > 0
     strategy:
