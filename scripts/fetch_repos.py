@@ -1,10 +1,10 @@
 import requests
-import pandas as pd
+from pandas import DataFrame
 
 # Timeout for HTTP requests (in seconds)
 REQUEST_TIMEOUT = 10
 
-def fetch_github_repos(entity="robocorp", entity_type=None, write_csv=False):
+def fetch_github_repos(entity: str, entity_type: str = None, write_csv: bool = False) -> DataFrame:
     """
     Fetch public repositories from a GitHub organization or user.
     
@@ -24,7 +24,7 @@ def fetch_github_repos(entity="robocorp", entity_type=None, write_csv=False):
             test_response = requests.get(test_url, timeout=REQUEST_TIMEOUT)
         except requests.exceptions.Timeout:
             print("Request timed out while determining entity type.")
-            return pd.DataFrame()
+            return DataFrame()
         entity_type = "org" if test_response.status_code == 200 else "user"
     
     # Set the appropriate API endpoint
@@ -92,7 +92,7 @@ def fetch_github_repos(entity="robocorp", entity_type=None, write_csv=False):
     repo_list.sort(key=lambda x: x["Stars"] or 0, reverse=True)
     
     # Create DataFrame
-    df = pd.DataFrame(repo_list)
+    df = DataFrame(repo_list)
     
     if write_csv:
         csv_filename = f"devdata/work-items-in/input-for-producer/repos.csv"
@@ -101,13 +101,3 @@ def fetch_github_repos(entity="robocorp", entity_type=None, write_csv=False):
     
     return df
 
-if __name__ == "__main__":
-    import sys
-    if len(sys.argv) > 2:
-        entity = sys.argv[1]
-        entity_type = sys.argv[2] if sys.argv[2] in ['org', 'user'] else None
-    else:
-        entity = sys.argv[1] if len(sys.argv) > 1 else "robocorp"
-        entity_type = None
-    
-    fetch_github_repos(entity, entity_type)
