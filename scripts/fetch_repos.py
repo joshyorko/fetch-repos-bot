@@ -1,6 +1,9 @@
 import requests
 import pandas as pd
 
+# Timeout for HTTP requests (in seconds)
+REQUEST_TIMEOUT = 10
+
 def fetch_github_repos(entity="robocorp", entity_type=None, write_csv=False):
     """
     Fetch public repositories from a GitHub organization or user.
@@ -44,7 +47,7 @@ def fetch_github_repos(entity="robocorp", entity_type=None, write_csv=False):
             "direction": "desc"
         }
         try:
-            response = requests.get(url, headers=headers, params=params, timeout=10)
+            response = requests.get(url, headers=headers, params=params, timeout=REQUEST_TIMEOUT)
         except requests.exceptions.Timeout:
             print(f"Request timed out while fetching page {page}.")
             break
