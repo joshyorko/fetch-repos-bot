@@ -35,14 +35,16 @@ author: Joshua Yorko, [@joshyorko](https://github.com/joshyorko), joshua.yorko@g
 - `tasks.py` — Main Python file with Robocorp task definitions for producer and consumer.
 - `scripts/` — Helper scripts:
   - `generate_shards_and_matrix.py` — Splits work items into shards and generates the matrix for parallel processing.
-  - `shard_loader.py` — Loads the correct shard for each consumer run.
-  - `fetch_repos.py` — (Assumed) Logic for fetching repositories.
+  - `fetch_repos.py` — Logic for fetching repositories.
 - `devdata/` — Input/output data, environment files, and work items.
 - `output/` — Output directory for artifacts and results.
 - `.github/workflows/` — Contains GitHub Actions workflows:
-  - `fetch-repos-matrix.yaml` — Matrix-based producer-consumer workflow for parallel execution.
-  - `fetch-robocorp.yaml` — Standard producer-consumer workflow.
-  - `holotree-vars.yaml` — Workflow for managing RCC holotree variables.
+  - `fetch-repos-matrix.yaml` — Matrix-based producer-consumer workflow for parallel execution. This is the primary workflow for the bot.
+- `arc-docker/` — Contains files for building a custom GitHub Actions Runner image with pre-installed dependencies:
+  - `Dockerfile` — Defines the Docker image build process, including Node.js, Playwright, and Robocorp RCC.
+  - `conda.yaml` — Conda environment specification for the Docker image, ensuring necessary Python packages are available.
+  - `robot.yaml` — Robocorp robot configuration specific to the Docker environment, if needed.
+  - `values.yaml` — Configuration values, potentially for deploying the runner in a Kubernetes environment (e.g., defining resources, image name).
 
 ---
 
@@ -88,12 +90,10 @@ author: Joshua Yorko, [@joshyorko](https://github.com/joshyorko), joshua.yorko@g
 ## GitHub Actions Workflows
 
 - **fetch-repos-matrix.yaml:**
+  - The primary workflow for this project.
   - Supports parallel consumer jobs using matrix strategy.
   - Accepts `org_name` and `max_workers` as inputs.
-- **fetch-robocorp.yaml:**
-  - Simpler, sequential producer-consumer workflow.
-- **holotree-vars.yaml:**
-  - Utility workflow for managing RCC holotree variables on specific runners.
+  - Can be configured to use the custom Docker image built from the `arc-docker` directory for self-hosted runners, ensuring all dependencies are pre-installed for faster and more reliable execution.
 
 ---
 
