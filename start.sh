@@ -12,6 +12,12 @@ mkdir -p devdata/work-items-in/input-for-producer
 if [ -n "${ORG_NAME:-}" ]; then
   echo "[{\"payload\": {\"org\": \"${ORG_NAME}\"}}]" > \
     devdata/work-items-in/input-for-producer/work-items.json
+else
+  # Create a default work item when ORG_NAME isn't provided.
+  # The organization will then be read from env-for-producer.json
+  # by the producer task.
+  echo "[{\"payload\": {}}]" > \
+    devdata/work-items-in/input-for-producer/work-items.json
 fi
 
 # Run producer step
