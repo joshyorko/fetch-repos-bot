@@ -15,14 +15,7 @@ rcc holotree vars
 
 ---
 
-## Test Suite
-Before committing, ensure all tests pass:
 
-```bash
-rcc task script -- python -m pytest -q
-```
-
----
 
 ## Default Run
 To run the main automation task:
