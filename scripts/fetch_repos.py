@@ -85,7 +85,7 @@ def fetch_github_repos(entity: str, entity_type: str = None, write_csv: bool = F
             break
         page += 1
 
-    print(f"\nRepository statistics:")
+    print("\nRepository statistics:")
     print(f"Total public repositories found: {len(repo_list)}")
     
     # Sort by stars for the CSV
@@ -95,7 +95,7 @@ def fetch_github_repos(entity: str, entity_type: str = None, write_csv: bool = F
     df = DataFrame(repo_list)
     
     if write_csv:
-        csv_filename = f"devdata/work-items-in/input-for-producer/repos.csv"
+        csv_filename = "devdata/work-items-in/input-for-producer/repos.csv"
         df.to_csv(csv_filename, index=False)
         print(f"CSV file '{csv_filename}' created successfully with {len(repo_list)} repositories.")
     
