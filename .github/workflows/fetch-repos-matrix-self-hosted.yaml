@@ -1,4 +1,4 @@
-name: Robocorp ARC Producer-Consumer Matrix Workflow
+name: SELF-HOSTED ARC Producer-Consumer Matrix Workflow
 
 on:
   workflow_dispatch:
