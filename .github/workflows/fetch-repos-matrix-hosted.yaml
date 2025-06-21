@@ -14,8 +14,7 @@ on:
 jobs:
   producer:
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/joshyorko/fetch-repos-bot-runner:latest
+
     outputs:
       matrix: ${{ steps.get-matrix.outputs.matrix }}
       shard_count: ${{ steps.get-matrix.outputs.shard_count }}
@@ -26,6 +25,17 @@ jobs:
           clean: true
 
 
+      - name: Ensure RCC is installed
+        run: |
+          if ! command -v rcc &> /dev/null; then
+            echo "RCC not found. Downloading..."
+            curl -o rcc https://downloads.robocorp.com/rcc/releases/latest/linux64/rcc
+            chmod +x rcc
+            sudo mv rcc /usr/local/bin/
+          else
+            echo "RCC is already installed."
+          fi
+          
       - name: Disable RCC telemetry
         run: |
           echo "Disabling RCC telemetry..."
@@ -62,7 +72,8 @@ jobs:
           retention-days: 1
 
   consumer:
-    runs-on: fetch-repos-bot-runner-k8s
+    runs-on: ubuntu-latest
+
     needs: producer
     if: needs.producer.outputs.shard_count > 0
     strategy:
