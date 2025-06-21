@@ -85,9 +85,9 @@ jobs:
           cmd: |
             NEW_TAG=${{ steps.set_tag.outputs.NEW_TAG }}
             echo "Updating arc-docker/values.yaml to use tag $NEW_TAG"
-            yq -i '.template.spec.containers[0].image |= sub("ghcr.io/joshyorko/fetch-repos-bot-runner:[^\"]*", env(NEW_TAG))' arc-docker/values.yaml
+            yq -i '.template.spec.containers[0].image |= sub("ghcr.io/joshyorko/fetch-repos-bot-runner:[^\\\"]*", env(NEW_TAG))' arc-docker/values.yaml
             echo "Updating .github/workflows/fetch-repos-matrix-hosted.yaml to use tag $NEW_TAG"
-            yq -i '.jobs.producer.container.image |= sub("ghcr.io/joshyorko/fetch-repos-bot-runner:[^\"]*", env(NEW_TAG))' .github/workflows/fetch-repos-matrix-hosted.yaml
+            yq -i '.jobs.producer.container.image |= sub("ghcr.io/joshyorko/fetch-repos-bot-runner:[^\\\"]*", env(NEW_TAG))' .github/workflows/fetch-repos-matrix-hosted.yaml
 
       - name: Create or update tag-bump PR
         uses: peter-evans/create-pull-request@v7.0.8
