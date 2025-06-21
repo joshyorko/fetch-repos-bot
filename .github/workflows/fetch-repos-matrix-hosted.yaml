@@ -59,6 +59,7 @@ jobs:
         with:
           name: producer-output
           path: output/
+          retention-days: 1
 
   consumer:
     runs-on: fetch-repos-bot-runner-k8s
@@ -120,3 +121,4 @@ jobs:
         with:
           name: shard-output-${{ matrix.shard_id }}
           path: output
+          retention-days: 1
