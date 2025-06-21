@@ -24,6 +24,10 @@ def main(max_workers):
 
     # Create shards using computed start indices to avoid empty shards
     shards_dir = Path('output/shards')
+    if shards_dir.exists():
+        for file in shards_dir.iterdir():
+            if file.is_file():
+                file.unlink()
     shards_dir.mkdir(exist_ok=True)
 
     shard_starts = list(range(0, total, per_shard))
