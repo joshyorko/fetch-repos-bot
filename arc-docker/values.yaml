@@ -10,6 +10,7 @@ runnerScaleSetName: "fetch-repos-bot-runner-k8s" # Name of the runner scale set
 # --------------------------------------------------------------------
 # Runner Pod template configuration
 # --------------------------------------------------------------------
+
 template:
   spec:
     dnsPolicy: None
@@ -27,7 +28,7 @@ template:
             cpu: "2"
             memory: "4Gi"
           limits:
-            cpu: "8"
-            memory: "16Gi"
+            cpu: "4"
+            memory: "8Gi"
 maxRunners: 5
 minRunners: 0
