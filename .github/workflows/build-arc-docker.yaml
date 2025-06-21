@@ -80,14 +80,23 @@ jobs:
           rm -f arc-docker/robot.yaml arc-docker/conda.yaml
 
       - name: Update image tag in values.yaml and GitHub Actions workflows
+        env:
+          NEW_TAG: ${{ steps.set_tag.outputs.NEW_TAG }}
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
         uses: mikefarah/yq@v4.45.4
         with:
           cmd: |
-            NEW_TAG=${{ steps.set_tag.outputs.NEW_TAG }}
             echo "Updating arc-docker/values.yaml to use tag $NEW_TAG"
-            yq -i '.template.spec.containers[0].image |= sub("ghcr.io/joshyorko/fetch-repos-bot-runner:[^\\\"]*", env(NEW_TAG))' arc-docker/values.yaml
+            # Extract just the tag part from the full image reference
+            TAG_ONLY=$(echo "$NEW_TAG" | awk -F: '{print $2}')
+            echo "Using tag: $TAG_ONLY"
+            FULL_REF="${REGISTRY}/${IMAGE_NAME}:${TAG_ONLY}"
+            echo "Full image reference: $FULL_REF"
+            
+            yq -i '.template.spec.containers[0].image |= sub("ghcr.io/joshyorko/fetch-repos-bot-runner:[^ ]*", env(FULL_REF))' arc-docker/values.yaml
             echo "Updating .github/workflows/fetch-repos-matrix-hosted.yaml to use tag $NEW_TAG"
-            yq -i '.jobs.producer.container.image |= sub("ghcr.io/joshyorko/fetch-repos-bot-runner:[^\\\"]*", env(NEW_TAG))' .github/workflows/fetch-repos-matrix-hosted.yaml
+            yq -i '.jobs.producer.container.image |= sub("ghcr.io/joshyorko/fetch-repos-bot-runner:[^ ]*", env(FULL_REF))' .github/workflows/fetch-repos-matrix-hosted.yaml
 
       - name: Create or update tag-bump PR
         uses: peter-evans/create-pull-request@v7.0.8
