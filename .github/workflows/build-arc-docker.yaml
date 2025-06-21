@@ -23,7 +23,7 @@ jobs:
     permissions:
       contents: write          # was: read
       packages: write
-      pull-requests: write     # ← add this line
+      pull-requests: write
 
     steps:
       - name: Checkout repository
@@ -79,16 +79,13 @@ jobs:
         run: |
           rm -f arc-docker/robot.yaml arc-docker/conda.yaml
 
-      - name: Update image tag in values.yaml and GitHub Actions workflows
+      - name: Update image tag in values.yaml and matrix-hosted workflow
         env:
           NEW_TAG: ${{ steps.set_tag.outputs.NEW_TAG }}
         uses: mikefarah/yq@v4.45.4
         with:
           cmd: |
             echo "Updating arc-docker/values.yaml to use tag $NEW_TAG"
-            # Use the full NEW_TAG directly without trying to parse it
-            echo "Using image reference: $NEW_TAG"
-            
             yq -i '.template.spec.containers[0].image |= sub("ghcr.io/joshyorko/fetch-repos-bot-runner:[^ ]*", env(NEW_TAG))' arc-docker/values.yaml
             echo "Updating .github/workflows/fetch-repos-matrix-hosted.yaml to use tag $NEW_TAG"
             yq -i '.jobs.producer.container.image |= sub("ghcr.io/joshyorko/fetch-repos-bot-runner:[^ ]*", env(NEW_TAG))' .github/workflows/fetch-repos-matrix-hosted.yaml
