@@ -23,7 +23,7 @@ template:
     #  - name: ghcr-login
     containers:
       - name: runner
-        image: ghcr.io/yorko-io/custom-arc-runner-playwright-deps:repos-bot  # Replace with your image
+        image: ghcr.io/joshyorko/fetch-repos-bot-runner:latest  # Replace with your image
         imagePullPolicy: Always
         command: ["/home/runner/run.sh"]
         resources:
@@ -34,6 +34,6 @@ template:
             cpu: "8"
             memory: "16Gi"
 
-maxRunners: 3
+maxRunners: 5
 
 minRunners: 0

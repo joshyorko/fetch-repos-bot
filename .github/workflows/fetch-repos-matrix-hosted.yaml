@@ -1,0 +1,132 @@
+name: Robocorp ARC Producer-Consumer Matrix Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      org_name:
+        description: 'Organization name to fetch repositories from'
+        default: 'joshyorko'
+      max_workers:
+        description: 'Maximum number of parallel workers'
+        default: '4'
+        type: string
+
+jobs:
+  producer:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/joshyorko/fetch-repos-bot-runner:latest
+    outputs:
+      matrix: ${{ steps.get-matrix.outputs.matrix }}
+      shard_count: ${{ steps.get-matrix.outputs.shard_count }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          clean: true
+
+      - name: Ensure RCC is installed
+        run: |
+          if ! command -v rcc &> /dev/null; then
+            echo "RCC not found. Downloading..."
+            curl -o rcc https://downloads.robocorp.com/rcc/releases/latest/linux64/rcc
+            chmod +x rcc
+            sudo mv rcc /usr/local/bin/
+          else
+            echo "RCC is already installed."
+          fi
+
+      - name: Disable RCC telemetry
+        run: |
+          echo "Disabling RCC telemetry..."
+          rcc config identity -t
+
+      - name: Generate input work item for producer
+        run: |
+          mkdir -p devdata/work-items-in/input-for-producer
+          echo '[{"payload": {"org": "${{ inputs.org_name }}"}}]' > devdata/work-items-in/input-for-producer/work-items.json
+
+      - name: Run RCC Producer
+        run: rcc run -t producer -e devdata/env-for-producer.json
+        env:
+          ORG_NAME: ${{ inputs.org_name }}
+
+      - name: Generate shards and matrix
+        run: |
+          python3 scripts/generate_shards_and_matrix.py ${{ inputs.max_workers }}
+
+      - name: Get matrix configuration
+        id: get-matrix
+        run: |
+          cat output/matrix-output.json
+          MATRIX=$(cat output/matrix-output.json)
+          echo "matrix=${MATRIX}" >> $GITHUB_OUTPUT
+          SHARD_COUNT=$(echo "${MATRIX}" | jq '.matrix.include | length')
+          echo "shard_count=${SHARD_COUNT}" >> $GITHUB_OUTPUT
+
+      - name: Upload producer output
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: producer-output
+          path: output/
+
+  consumer:
+    runs-on: fetch-repos-bot-runner-k8s
+    needs: producer
+    if: needs.producer.outputs.shard_count > 0
+    strategy:
+      matrix: ${{ fromJSON(needs.producer.outputs.matrix).matrix }}
+      max-parallel: ${{ fromJSON(inputs.max_workers) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          clean: true
+
+      - name: Ensure RCC is installed
+        run: |
+          if ! command -v rcc &> /dev/null; then
+            echo "RCC not found. Downloading..."
+            curl -o rcc https://downloads.robocorp.com/rcc/releases/latest/linux64/rcc
+            chmod +x rcc
+            sudo mv rcc /usr/local/bin/
+          else
+            echo "RCC is already installed."
+          fi
+
+      - name: Disable RCC telemetry
+        run: |
+          echo "Disabling RCC telemetry..."
+          rcc config identity -t
+
+      - name: Download sharded work items
+        uses: actions/download-artifact@v4.3.0
+        with:
+          name: producer-output
+          path: output/
+
+      - name: Setup work items for this shard
+        run: |
+          python3 scripts/shard_loader.py
+        env:
+          SHARD_ID: ${{ matrix.shard_id }}
+
+      - name: Update consumer env file for shard
+        run: |
+          SHARD_PATH="output/shards/work-items-shard-${{ matrix.shard_id }}.json"
+          echo "{
+            \"RC_WORKITEM_ADAPTER\": \"FileAdapter\",
+            \"RC_WORKITEM_INPUT_PATH\": \"$SHARD_PATH\",
+            \"RC_WORKITEM_OUTPUT_PATH\": \"output/consumer-to-reporter/work-items-${{ matrix.shard_id }}.json\"
+          }" > devdata/env-for-consumer.json
+          
+      - name: Run RCC Consumer
+        run: rcc run -t consumer -e devdata/env-for-consumer.json
+        env:
+          SHARD_ID: ${{ matrix.shard_id }}
+
+      - name: Upload shard output
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: shard-output-${{ matrix.shard_id }}
+          path: output
