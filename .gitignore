@@ -17,3 +17,7 @@ testrun/*
 .~lock*
 *.pkl
 .venv/
+
+# Ignore copied configuration files in arc-docker directory
+arc-docker/robot.yaml
+arc-docker/conda.yaml

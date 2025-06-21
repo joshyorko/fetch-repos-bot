@@ -26,6 +26,7 @@ RUN curl -o rcc https://cdn.sema4.ai/rcc/releases/latest/linux64/rcc \
  && mv rcc /usr/local/bin/
 
 # Copy configuration and values for fetch-repos
+# These files are copied to arc-docker/ by the GitHub Action before building
 COPY conda.yaml /workspace/conda.yaml
 COPY robot.yaml /workspace/robot.yaml
 

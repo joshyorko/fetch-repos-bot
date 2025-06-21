@@ -22,23 +22,24 @@ def main(max_workers):
     num_workers = min(max_workers, total)
     per_shard = math.ceil(total / num_workers)
 
-    # Create shards
+    # Create shards using computed start indices to avoid empty shards
     shards_dir = Path('output/shards')
+    if shards_dir.exists():
+        for file in shards_dir.iterdir():
+            if file.is_file():
+                file.unlink()
     shards_dir.mkdir(exist_ok=True)
-    matrix_include = []
-    for i in range(num_workers):
-        start_idx = i * per_shard
-        end_idx = min(start_idx + per_shard, total)
-        if start_idx >= total:
-            break  # No more items to process
-        shard_items = work_items[start_idx:end_idx]
-        if not shard_items:
-            continue  # Should not happen with the break, but as a safeguard
+
+    shard_starts = list(range(0, total, per_shard))
+    for i, start_idx in enumerate(shard_starts):
+        shard_items = work_items[start_idx:start_idx + per_shard]
         shard_file = shards_dir / f'work-items-shard-{i}.json'
         with open(shard_file, 'w') as f:
             json.dump(shard_items, f)
-        matrix_include.append({'shard_id': i})
         print(f'Created shard {i} with {len(shard_items)} items')
+
+    # Build matrix include after shards are created
+    matrix_include = [{'shard_id': i} for i in range(len(shard_starts))]
     # Save matrix config
     matrix_config = {'matrix': {'include': matrix_include}}
     with open('output/matrix-output.json', 'w') as f:
