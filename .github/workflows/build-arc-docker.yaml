@@ -70,3 +70,24 @@ jobs:
       - name: Clean up copied files
         run: |
           rm -f arc-docker/robot.yaml arc-docker/conda.yaml
+
+      - name: Update image tag in values.yaml and GitHub Actions workflows
+        uses: mikefarah/yq@v4.45.4
+        with:
+          cmd: |
+            NEW_TAG=$(echo "${{ steps.meta.outputs.tags }}" | grep -oE '[^, ]+$')
+            echo "Updating arc-docker/values.yaml to use tag $NEW_TAG"
+            yq -i '.template.spec.containers[0].image |= sub("ghcr.io/joshyorko/fetch-repos-bot-runner:[^\"']*", "ghcr.io/joshyorko/fetch-repos-bot-runner:" + strenv(NEW_TAG))' arc-docker/values.yaml
+            echo "Updating .github/workflows/fetch-repos-matrix-hosted.yaml to use tag $NEW_TAG"
+            yq -i '(.jobs.producer.container.image // .jobs.consumer.container.image) |= sub("ghcr.io/joshyorko/fetch-repos-bot-runner:[^\"']*", "ghcr.io/joshyorko/fetch-repos-bot-runner:" + strenv(NEW_TAG))' .github/workflows/fetch-repos-matrix-hosted.yaml
+            echo "Updating .github/workflows/fetch-repos-matrix-self-hosted.yaml to use tag $NEW_TAG"
+            yq -i '(.jobs.producer.container.image // .jobs.consumer.container.image) |= sub("ghcr.io/joshyorko/fetch-repos-bot-runner:[^\"']*", "ghcr.io/joshyorko/fetch-repos-bot-runner:" + strenv(NEW_TAG))' .github/workflows/fetch-repos-matrix-self-hosted.yaml
+
+      - name: Commit and push updated image tags
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "chore: update runner image tag in values.yaml and workflows"
+          file_pattern: |
+            arc-docker/values.yaml
+            .github/workflows/fetch-repos-matrix-hosted.yaml
+            .github/workflows/fetch-repos-matrix-self-hosted.yaml
