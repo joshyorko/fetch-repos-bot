@@ -86,7 +86,7 @@ jobs:
         with:
           cmd: |
             echo "Updating arc-docker/values.yaml to use tag $NEW_TAG"
-            yq -i '.template.spec.containers[0].image |= sub("ghcr.io/joshyorko/fetch-repos-bot-runner:[^ ]*", env(NEW_TAG))' arc-docker/values.yaml
+            yq -i '.template.spec.containers[0].image = env(NEW_TAG)' arc-docker/values.yaml
 
       - name: Create or update tag-bump PR
         uses: peter-evans/create-pull-request@v7.0.8
