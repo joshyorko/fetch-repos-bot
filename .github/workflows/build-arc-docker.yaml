@@ -15,7 +15,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/ror
+  IMAGE_NAME: ${{ github.repository_owner }}/fetch-repos-bot-runner
 
 jobs:
   build-and-push:
