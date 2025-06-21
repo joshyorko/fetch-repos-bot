@@ -5,12 +5,12 @@ on:
     paths:
       - 'robot.yaml'
       - 'conda.yaml'
-      - 'arc-docker/**'
+      - 'arc-docker/Dockerfile'
   pull_request:
     paths:
       - 'robot.yaml'
       - 'conda.yaml'
-      - 'arc-docker/**'
+      - 'arc-docker/Dockerfile'
   workflow_dispatch:
 
 env:
