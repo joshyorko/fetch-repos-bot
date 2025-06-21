@@ -23,17 +23,7 @@ jobs:
         with:
           clean: true
 
-      - name: Ensure RCC is installed
-        run: |
-          if ! command -v rcc &> /dev/null; then
-            echo "RCC not found. Downloading..."
-            curl -o rcc https://downloads.robocorp.com/rcc/releases/latest/linux64/rcc
-            chmod +x rcc
-            sudo mv rcc /usr/local/bin/
-          else
-            echo "RCC is already installed."
-          fi
-
+  
       - name: Disable RCC telemetry
         run: |
           echo "Disabling RCC telemetry..."
