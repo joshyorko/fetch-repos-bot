@@ -149,12 +149,15 @@ def consumer():
 
     print(f"[Shard {shard_id}] Consumer task finished. Report at: {report_path}")
 
-    # Clean up the cloned repos
-    print(f"[Shard {shard_id}] Cleaning up cloned repositories...")
-    for repo_path in git_repos:
-        # A more robust way to handle cleanup
-        try:
-            shutil.rmtree(repo_path)
-        except OSError as e:
-            print(f"Error removing directory {repo_path}: {e}")
+    # Zip the cloned repositories directory before cleanup
+    print(f"[Shard {shard_id}] Zipping cloned repositories...")
+    shutil.make_archive(str(output_path.with_suffix('')), 'zip', root_dir=repos_dir)
+    print(f"[Shard {shard_id}] Zipped repositories to: {output_path}")
+
+    # Clean up the cloned repos directory (but not the zip file)
+    print(f"[Shard {shard_id}] Cleaning up cloned repositories directory...")
+    try:
+        shutil.rmtree(repos_dir)
+    except OSError as e:
+        print(f"Error removing directory {repos_dir}: {e}")
     print(f"[Shard {shard_id}] Cleanup complete")
