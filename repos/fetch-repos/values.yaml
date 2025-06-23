@@ -1,16 +1,19 @@
 # --------------------------------------------------------------------
 # GitHub configuration
 # --------------------------------------------------------------------
-githubConfigUrl: "https://github.com/joshyorko/fetch-repos-bot" # Replace with your GitHub URL
+githubConfigUrl: "https://github.com/joshyorko/fetch-repos-bot"  # Replace with your GitHub URL
+
 githubConfigSecret: pre-defined-secret
+
 # --------------------------------------------------------------------
 # Runner scale set configuration
 # --------------------------------------------------------------------
-runnerScaleSetName: "fetch-repos-bot-runner-k8s" # Name of the runner scale set
+runnerScaleSetName: "fetch-repos-bot-runner-k8s"  # Name of the runner scale set
+
+
 # --------------------------------------------------------------------
 # Runner Pod template configuration
 # --------------------------------------------------------------------
-
 template:
   spec:
     dnsPolicy: None

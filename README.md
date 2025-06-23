@@ -40,7 +40,7 @@ author: Joshua Yorko, [@joshyorko](https://github.com/joshyorko), joshua.yorko@g
 - `output/` — Output directory for artifacts and results.
 - `.github/workflows/` — Contains GitHub Actions workflows:
   - `fetch-repos-matrix.yaml` — Matrix-based producer-consumer workflow for parallel execution. This is the primary workflow for the bot.
-- `arc-docker/` — Contains files for building a custom GitHub Actions Runner image with pre-installed dependencies:
+- `repos/` — Contains files for building a custom GitHub Actions Runner image with pre-installed dependencies:
   - `Dockerfile` — Defines the Docker image build process, including Node.js, Playwright, and Robocorp RCC.
   - `conda.yaml` — Conda environment specification for the Docker image, ensuring necessary Python packages are available.
   - `robot.yaml` — Robocorp robot configuration specific to the Docker environment, if needed.
@@ -93,7 +93,7 @@ author: Joshua Yorko, [@joshyorko](https://github.com/joshyorko), joshua.yorko@g
   - The primary workflow for this project.
   - Supports parallel consumer jobs using matrix strategy.
   - Accepts `org_name` and `max_workers` as inputs.
-  - Can be configured to use the custom Docker image built from the `arc-docker` directory for self-hosted runners, ensuring all dependencies are pre-installed for faster and more reliable execution.
+  - Can be configured to use the custom Docker image built from the `repos` directory for self-hosted runners, ensuring all dependencies are pre-installed for faster and more reliable execution.
 
 ---
 
