@@ -1,16 +1,12 @@
 # --------------------------------------------------------------------
 # GitHub configuration
 # --------------------------------------------------------------------
-githubConfigUrl: "https://github.com/joshyorko/fetch-repos-bot"  # Replace with your GitHub URL
-
+githubConfigUrl: "https://github.com/joshyorko/fetch-repos-bot" # Replace with your GitHub URL
 githubConfigSecret: pre-defined-secret
-
 # --------------------------------------------------------------------
 # Runner scale set configuration
 # --------------------------------------------------------------------
-runnerScaleSetName: "fetch-repos-bot-runner-k8s"  # Name of the runner scale set
-
-
+runnerScaleSetName: "fetch-repos-bot-runner-k8s" # Name of the runner scale set
 # --------------------------------------------------------------------
 # Runner Pod template configuration
 # --------------------------------------------------------------------
@@ -23,7 +19,7 @@ template:
     #  - name: ghcr-login
     containers:
       - name: runner
-        image: ghcr.io/joshyorko/fetch-repos-bot-runner:main-484fb43 # Replace with your image
+        image: ghcr.io/joshyorko/fetch-repos-bot-runner:main-6a04cda # Replace with your image
         imagePullPolicy: Always
         command: ["/home/runner/run.sh"]
         resources:
