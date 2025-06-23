@@ -75,6 +75,10 @@ def consumer():
     repos_dir.mkdir(parents=True, exist_ok=True)
     
     processed_repos = []
+    git_repos = []  # Track successfully cloned repo paths
+    
+    # Define report path before use
+    report_path = output / f"report-shard-{shard_id}.json"
     
     for item in workitems.inputs:
         try:
@@ -101,57 +105,56 @@ def consumer():
                     "url": url,
                     "status": "success"
                 })
+                git_repos.append(repo_path)  # Add to cleanup list
                 item.done()
             except GitCommandError as git_err:
                 error_msg = f"Git error while cloning {repo_name}: {str(git_err)}"
                 print(f"[Shard {shard_id}] {error_msg}")
-                processed_repos.append({
-                    "name": repo_name,
-                    "url": url,
-                    "status": "failed",
-                    "error": error_msg
-                })
-                item.fail("BUSINESS", code="GIT_ERROR", message=error_msg)
+                # We'll check for a common transient Git error.
+                if "could not resolve host" in str(git_err).lower():
+                    print(f"[Shard {shard_id}] Transient network error for {repo_name}. Skipping for retry.")
+                    processed_repos.append({
+                        "name": repo_name,
+                        "url": url,
+                        "status": "released",
+                        "error": error_msg
+                    })
+                    # Do not mark as done or failed, so it can be retried if supported
+                else:
+                    processed_repos.append({
+                        "name": repo_name,
+                        "url": url,
+                        "status": "failed",
+                        "error": error_msg
+                    })
+                    item.fail("BUSINESS", code="GIT_ERROR", message=error_msg)
                 continue
                 
         except AssertionError as err:
             item.fail("BUSINESS", code="INVALID_ORDER", message=str(err))
-        except KeyError as err:
-            item.fail("APPLICATION", code="MISSING_FIELD", message=str(err))
-    
-    # Get all directories that are git repositories in the repos directory
-    git_repos = [d for d in os.listdir(repos_dir) if os.path.isdir(os.path.join(repos_dir, d)) 
-                 and os.path.exists(os.path.join(repos_dir, d, '.git'))]
-    
-    # Save processing report
-    report_path = output / f"shard-{shard_id}-report.json"
+            continue
+
+    # Create a summary report
     report = {
         "shard_id": shard_id,
         "total_processed": len(processed_repos),
         "successful_clones": len(git_repos),
         "failed_clones": len([r for r in processed_repos if r["status"] == "failed"]),
+        "released_items": len([r for r in processed_repos if r["status"] == "released"]),
         "repositories": processed_repos
     }
     
     with open(report_path, 'w') as f:
-        json.dump(report, f, indent=2)
-    
-    print(f"[Shard {shard_id}] Processing report saved to: {report_path}")
-    
-    if git_repos:
-        print(f"[Shard {shard_id}] Creating zip archive of {len(git_repos)} repositories...")
+        json.dump(report, f, indent=4)
+
+    print(f"[Shard {shard_id}] Consumer task finished. Report at: {report_path}")
+
+    # Clean up the cloned repos
+    print(f"[Shard {shard_id}] Cleaning up cloned repositories...")
+    for repo_path in git_repos:
+        # A more robust way to handle cleanup
         try:
-            # Create the zip file containing all repositories
-            shutil.make_archive(str(output_path.with_suffix('')), 'zip', 
-                              root_dir=str(repos_dir), base_dir=None)
-            print(f"[Shard {shard_id}] Successfully created archive at: {output_path}")
-            
-            # Clean up: remove the cloned repositories after zipping
-            print(f"[Shard {shard_id}] Cleaning up cloned repositories...")
-            shutil.rmtree(repos_dir)
-            print(f"[Shard {shard_id}] Cleanup complete")
-        except Exception as e:
-            print(f"[Shard {shard_id}] Error during archive creation or cleanup: {str(e)}")
-            raise
-    else:
-        print(f"[Shard {shard_id}] No repositories to archive")
+            shutil.rmtree(repo_path)
+        except OSError as e:
+            print(f"Error removing directory {repo_path}: {e}")
+    print(f"[Shard {shard_id}] Cleanup complete")
