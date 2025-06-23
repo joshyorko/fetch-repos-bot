@@ -106,11 +106,16 @@ def consumer():
                     "status": "success"
                 })
                 git_repos.append(repo_path)  # Add to cleanup list
+                # Create output work item for success
+                workitems.outputs.create({
+                    "name": repo_name,
+                    "url": url,
+                    "status": "success"
+                })
                 item.done()
             except GitCommandError as git_err:
                 error_msg = f"Git error while cloning {repo_name}: {str(git_err)}"
                 print(f"[Shard {shard_id}] {error_msg}")
-                # We'll check for a common transient Git error.
                 if "could not resolve host" in str(git_err).lower():
                     print(f"[Shard {shard_id}] Transient network error for {repo_name}. Skipping for retry.")
                     processed_repos.append({
@@ -119,9 +124,23 @@ def consumer():
                         "status": "released",
                         "error": error_msg
                     })
+                    # Create output work item for released
+                    workitems.outputs.create({
+                        "name": repo_name,
+                        "url": url,
+                        "status": "released",
+                        "error": error_msg
+                    })
                     # Do not mark as done or failed, so it can be retried if supported
                 else:
                     processed_repos.append({
+                        "name": repo_name,
+                        "url": url,
+                        "status": "failed",
+                        "error": error_msg
+                    })
+                    # Create output work item for failure
+                    workitems.outputs.create({
                         "name": repo_name,
                         "url": url,
                         "status": "failed",
