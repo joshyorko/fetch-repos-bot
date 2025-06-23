@@ -129,10 +129,23 @@ if [ "$DRY_RUN" != "true" ]; then
 fi
 
 # Ensure runner namespace and GHCR secret
-# Find the latest .private-key.pem file in the current directory
+
+# Prefer pre-defined-secret.yaml for the private key, otherwise fall back to .private-key.pem
+SECRET_FILE="pre-defined-secret.yaml"
 PEM_FILE=$(ls -1t *.private-key.pem 2>/dev/null | head -n 1)
-if [[ -z "$PEM_FILE" ]]; then
-  echo "Error: No .private-key.pem file found in the current directory."
+PRIVATE_KEY_CONTENT=""
+
+if [[ -f "$SECRET_FILE" ]]; then
+  # Extract github_app_private_key from the YAML file
+  PRIVATE_KEY_CONTENT=$(awk '/github_app_private_key:/{print substr($0, index($0,$2))}' "$SECRET_FILE")
+  if [[ -z "$PRIVATE_KEY_CONTENT" ]]; then
+    echo "Error: pre-defined-secret.yaml found but github_app_private_key is empty."
+    exit 1
+  fi
+elif [[ -f "$PEM_FILE" ]]; then
+  PRIVATE_KEY_CONTENT="$(cat "$PEM_FILE")"
+else
+  echo "Error: Neither pre-defined-secret.yaml nor .private-key.pem file found in the current directory."
   exit 1
 fi
 
