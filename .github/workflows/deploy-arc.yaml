@@ -11,7 +11,7 @@ on:
 
 jobs:
   deploy:
-    runs-on: fetch-repos-bot-runner-k8s
+    runs-on: ubuntu-latest
     # Only run this job if the PR was merged
     if: github.event.pull_request.merged == true
     steps:
