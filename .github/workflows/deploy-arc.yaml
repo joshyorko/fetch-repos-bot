@@ -50,10 +50,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y python3 python3-pip
 
+
       - name: Create pre-defined-secret.yaml from ARC_PRIVATE_KEY secret
-        run: echo "$ARC_PRIVATE_KEY" | base64 -d > pre-defined-secret.yaml
-        env:
-          ARC_PRIVATE_KEY: ${{ secrets.ARC_PRIVATE_KEY }}
+        run: |
+          echo "${{ secrets.ARC_PRIVATE_KEY }}" | base64 -d > arc-private-key.pem
+          echo "apiVersion: v1" > pre-defined-secret.yaml
+          echo "kind: Secret" >> pre-defined-secret.yaml
+          echo "metadata:" >> pre-defined-secret.yaml
+          echo "  name: pre-defined-secret" >> pre-defined-secret.yaml
+          echo "type: Opaque" >> pre-defined-secret.yaml
+          echo "stringData:" >> pre-defined-secret.yaml
+          echo "  github_app_private_key: |" >> pre-defined-secret.yaml
+          sed 's/^/    /' arc-private-key.pem >> pre-defined-secret.yaml
 
       - name: Run install script
         run: |
