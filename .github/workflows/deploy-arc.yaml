@@ -50,10 +50,10 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y python3 python3-pip
 
-      - name: Create pre-defined-secret.yaml from secret
-        run: echo "$PRE_DEFINED_SECRET" | base64 -d > pre-defined-secret.yaml
+      - name: Create pre-defined-secret.yaml from ARC_PRIVATE_KEY secret
+        run: echo "$ARC_PRIVATE_KEY" | base64 -d > pre-defined-secret.yaml
         env:
-          PRE_DEFINED_SECRET: ${{ secrets.PRE_DEFINED_SECRET }}
+          ARC_PRIVATE_KEY: ${{ secrets.ARC_PRIVATE_KEY }}
 
       - name: Run install script
         run: |
