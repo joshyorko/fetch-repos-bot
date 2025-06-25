@@ -42,9 +42,10 @@ jobs:
           IMAGE_BASE="ghcr.io/${REPO_OWNER_LC}/fetch-repos-bot-runner"
           CACHE_IMG="ghcr.io/${REPO_OWNER_LC}/fetch-repos-bot-runner-cache"
 
-          # ↓ auth for Kaniko
-          mkdir -p /kaniko/.docker
-          cat >/kaniko/.docker/config.json <<EOF
+          # Use a writable directory for Kaniko auth
+          KANIKO_CONFIG_DIR="${{ runner.temp }}/kaniko/.docker"
+          mkdir -p "$KANIKO_CONFIG_DIR"
+          cat >"$KANIKO_CONFIG_DIR/config.json" <<EOF
           { "auths": { "ghcr.io": { "auth": "$(echo -n "$GIT_USERNAME:$GIT_PASSWORD" | base64 -w0)" } } }
           EOF
 
@@ -56,6 +57,7 @@ jobs:
             --destination="${IMAGE_BASE}:${SHORT_SHA}" \
             ${KANIKO_CACHE_ARGS} \
             --cache-repo="${CACHE_IMG}" \
+            --docker-config="$KANIKO_CONFIG_DIR" \
             --push-retry 5
 
           echo "IMAGE_BASE=${IMAGE_BASE}" >> $GITHUB_ENV
