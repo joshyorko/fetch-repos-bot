@@ -1,0 +1,83 @@
+# --------------------------------------------------------------------
+# GitHub configuration
+# --------------------------------------------------------------------
+githubConfigUrl: "https://github.com/joshyorko/fetch-repos-bot"
+githubConfigSecret: pre-defined-secret
+
+# --------------------------------------------------------------------
+# Runner scale set configuration for Kaniko builds
+# --------------------------------------------------------------------
+runnerScaleSetName: "fetch-repos-bot-runner-k8s-kaniko"
+
+# --------------------------------------------------------------------
+# Kubernetes container mode configuration
+# --------------------------------------------------------------------
+containerMode:
+  type: "kubernetes"
+  kubernetesModeWorkVolumeClaim:
+    accessModes: ["ReadWriteOnce"]
+    storageClassName: "local-path"  # Adjust for your cluster (e.g., gp2, local-path, etc.)
+    resources:
+      requests:
+        storage: 5Gi  # Kaniko needs scratch space for layer cache and build context
+
+# --------------------------------------------------------------------
+# Runner Pod template configuration for Kaniko
+# --------------------------------------------------------------------
+template:
+  spec:
+    dnsPolicy: None
+    dnsConfig:
+      nameservers: ["8.8.8.8", "1.1.1.1"]
+    
+    # Image pull secrets for accessing private container registries
+    imagePullSecrets:
+      - name: ghcr-login  # Secret for GHCR authentication
+    
+    containers:
+      - name: runner
+        image: ghcr.io/actions/actions-runner:latest  # Use stock GitHub Actions runner image
+        imagePullPolicy: Always
+        command: ["/home/runner/run.sh"]
+        resources:
+          requests:
+            cpu: "1000m"
+            memory: "2Gi"
+          limits:
+            cpu: "2000m"
+            memory: "4Gi"
+        
+        # Environment variables for Kaniko authentication
+        env:
+          - name: DOCKER_CONFIG
+            value: "/kaniko/.docker/"
+        
+        # Volume mounts for Kaniko authentication
+        volumeMounts:
+          - name: docker-config
+            mountPath: /kaniko/.docker
+            readOnly: true
+    
+    # Volumes for Kaniko authentication
+    volumes:
+      - name: docker-config
+        secret:
+          secretName: ghcr-creds
+          items:
+            - key: .dockerconfigjson
+              path: config.json
+
+# --------------------------------------------------------------------
+# Scaling configuration
+# --------------------------------------------------------------------
+maxRunners: 3  # Reduced since Kaniko builds are more resource-efficient
+minRunners: 0
+
+# --------------------------------------------------------------------
+# RBAC for Kubernetes container mode
+# This is automatically handled by the ARC Helm chart when containerMode.type is set to "kubernetes"
+# The chart will create the necessary ServiceAccount, Role, and RoleBinding for:
+# - Creating/managing pods in the namespace
+# - Creating/managing secrets for job isolation
+# - Creating/managing PVCs for work volumes
+# --------------------------------------------------------------------
