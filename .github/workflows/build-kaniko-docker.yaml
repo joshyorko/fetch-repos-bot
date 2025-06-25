@@ -87,44 +87,16 @@ jobs:
         id: set_tag
         run: |
           echo "NEW_TAG=${NEW_TAG}" >> $GITHUB_OUTPUT
-
-      - name: Add build summary
-        if: always()
-        run: |
-          echo "## 🐳 Fetch-Repos Bot Runner Docker Image Built (Kaniko)" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Build Details" >> $GITHUB_STEP_SUMMARY
-          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
-          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
-          echo "| **Image Base** | \`$IMAGE_BASE\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Primary Tag** | \`$NEW_TAG\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Commit SHA** | \`$GITHUB_SHA\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Short SHA** | \`$SHORT_SHA\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Branch** | \`$BRANCH_NAME\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Runner** | \`${{ runner.name }}\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Build Tool** | Kaniko v1.23.2 |" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Built Tags" >> $GITHUB_STEP_SUMMARY
-          IFS=',' read -ra TAGS <<< "$BUILT_TAGS"
-          for tag in "${TAGS[@]}"; do
-            echo "- \`$tag\`" >> $GITHUB_STEP_SUMMARY
-          done
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Pull Command" >> $GITHUB_STEP_SUMMARY
-          echo '```bash' >> $GITHUB_STEP_SUMMARY
-          echo "docker pull $NEW_TAG" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Build Configuration" >> $GITHUB_STEP_SUMMARY
-          echo "- **Context**: \`${{ github.repositoryUrl }}#${{ github.ref }}#${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Dockerfile**: \`repos/fetch-repos/Dockerfile\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Platform**: \`linux/amd64\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Cache**: Enabled (24h TTL)" >> $GITHUB_STEP_SUMMARY
-          echo "- **Push Retries**: 5" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "_Job summary generated at $(date -u '+%Y-%m-%d %H:%M:%S UTC')_" >> $GITHUB_STEP_SUMMARY
+          echo "IMAGE_BASE=${IMAGE_BASE}" >> $GITHUB_OUTPUT
+          echo "BRANCH_NAME=${BRANCH_NAME}" >> $GITHUB_OUTPUT
+          echo "SHORT_SHA=${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "BUILT_TAGS=${BUILT_TAGS}" >> $GITHUB_OUTPUT
     outputs:
       image_tag: ${{ steps.set_tag.outputs.NEW_TAG }}
+      image_base: ${{ steps.set_tag.outputs.IMAGE_BASE }}
+      branch_name: ${{ steps.set_tag.outputs.BRANCH_NAME }}
+      short_sha: ${{ steps.set_tag.outputs.SHORT_SHA }}
+      built_tags: ${{ steps.set_tag.outputs.BUILT_TAGS }}
 
   update-values-and-pr:
     runs-on: ubuntu-latest
@@ -156,13 +128,54 @@ jobs:
           reviewers: joshyorko
           draft: false
 
-      - name: Add update summary
+      - name: Add build and update summary
         if: always()
+        env:
+          IMAGE_TAG: ${{ needs.build-to-ghcr.outputs.image_tag }}
+          IMAGE_BASE: ${{ needs.build-to-ghcr.outputs.image_base }}
+          BRANCH_NAME: ${{ needs.build-to-ghcr.outputs.branch_name }}
+          SHORT_SHA: ${{ needs.build-to-ghcr.outputs.short_sha }}
+          BUILT_TAGS: ${{ needs.build-to-ghcr.outputs.built_tags }}
         run: |
+          echo "## 🐳 Fetch-Repos Bot Runner Docker Image Built (Kaniko)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Details" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Image Base** | \`$IMAGE_BASE\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Primary Tag** | \`$IMAGE_TAG\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Commit SHA** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Short SHA** | \`$SHORT_SHA\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Branch** | \`$BRANCH_NAME\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Runner** | \`${{ runner.name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Build Tool** | Kaniko v1.24.0 |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Built Tags" >> $GITHUB_STEP_SUMMARY
+          IFS=',' read -ra TAGS <<< "$BUILT_TAGS"
+          for tag in "${TAGS[@]}"; do
+            echo "- \`$tag\`" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pull Command" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "docker pull $IMAGE_TAG" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- **Context**: \`${{ github.repositoryUrl }}#${{ github.ref }}#${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Dockerfile**: \`repos/fetch-repos/Dockerfile\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Platform**: \`linux/amd64\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Cache**: Enabled (24h TTL)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Push Retries**: 5" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "---" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 📝 Values Update Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Updated \`repos/fetch-repos/values.yaml\` with new image tag:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**New Tag**: \`${{ needs.build-to-ghcr.outputs.image_tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "**New Tag**: \`$IMAGE_TAG\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "A pull request has been created to merge these changes." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "_Job summary generated at $(date -u '+%Y-%m-%d %H:%M:%S UTC')_" >> $GITHUB_STEP_SUMMARY
