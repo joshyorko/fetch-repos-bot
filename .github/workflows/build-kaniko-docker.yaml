@@ -24,6 +24,9 @@ concurrency:
 jobs:
   build-and-push:
     runs-on: fetch-repos-bot-runner-k8s-kaniko
+    container:
+      image: ghcr.io/actions/actions-runner:latest   # or any image that has git+node
+      options: --user 1000                           # keeps file permissions nice
     permissions:
       contents: write
       packages: write
