@@ -34,6 +34,9 @@ jobs:
       packages: write          # push to GHCR
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Build and Push Image to GHCR with kaniko
         env:
           GIT_USERNAME: ${{ github.actor }}
@@ -55,3 +58,32 @@ jobs:
             $KANIKO_CACHE_ARGS \
             --cache-repo="$CACHE_IMG" \
             --push-retry 5
+
+      - name: Set NEW_TAG output
+        id: set_tag
+        run: |
+          NEW_TAG="$IMAGE_BASE:$(echo $GITHUB_SHA | head -c7)"
+          echo "NEW_TAG=$NEW_TAG" >> $GITHUB_OUTPUT
+
+      - name: Update image tag in values.yaml only
+        env:
+          NEW_TAG: ${{ steps.set_tag.outputs.NEW_TAG }}
+        uses: mikefarah/yq@v4.45.4
+        with:
+          cmd: |
+            echo "Updating repos/fetch-repos/values.yaml to use tag $NEW_TAG"
+            yq -i '.template.spec.containers[0].image = strenv(NEW_TAG)' repos/fetch-repos/values.yaml
+
+      - name: Create or update tag-bump PR
+        uses: peter-evans/create-pull-request@v7.0.8
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: chore/update-runner-image
+          commit-message: |
+            chore: update runner image tag to ${{ steps.set_tag.outputs.NEW_TAG }}
+          title: "chore: bump runner image → ${{ steps.set_tag.outputs.NEW_TAG }}"
+          body: |
+            Automated build updated:
+            • repos/fetch-repos/values.yaml
+          reviewers: joshyorko
+          draft: false
