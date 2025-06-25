@@ -15,7 +15,7 @@ on:
 
 env:
   IMAGE_BASE: ghcr.io/${{ github.repository_owner }}/fetch-repos-bot-runner
-  CACHE_IMG:  ghcr.io/${{ github.repository_owner }}/fetch-repos-bot-runner-cache:latest
+  CACHE_IMG: ghcr.io/${{ github.repository_owner }}/fetch-repos-bot-runner-cache
   KANIKO_CACHE_ARGS: "--cache=true --cache-copy-layers=true --cache-ttl=24h"
 
 concurrency:
