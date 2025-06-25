@@ -15,11 +15,11 @@ template:
     dnsPolicy: None
     dnsConfig:
       nameservers: ["8.8.8.8", "1.1.1.1"]
-    imagePullSecrets:        # omit this block if your image is public
+    imagePullSecrets: # omit this block if your image is public
       - name: ghcr-login
     containers:
       - name: runner
-        image: ghcr.io/joshyorko/fetch-repos-bot-runner:main-dc14a96 # Replace with your image
+        image: ghcr.io/joshyorko/fetch-repos-bot-runner:main-2c58293 # Replace with your image
         imagePullPolicy: Always
         command: ["/home/runner/run.sh"]
         resources:
