@@ -14,8 +14,6 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE_BASE: ghcr.io/${{ github.repository_owner }}/fetch-repos-bot-runner
-  CACHE_IMG: ghcr.io/${{ github.repository_owner }}/fetch-repos-bot-runner-cache:latest
   KANIKO_CACHE_ARGS: "--cache=true --cache-copy-layers=true --cache-ttl=24h"
 
 concurrency:
@@ -39,6 +37,9 @@ jobs:
           GIT_USERNAME: ${{ github.actor }}
           GIT_PASSWORD: ${{ secrets.CR_PAT }}
         run: |
+          REPO_OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE_BASE=ghcr.io/$REPO_OWNER_LC/fetch-repos-bot-runner
+          CACHE_IMG=ghcr.io/$REPO_OWNER_LC/fetch-repos-bot-runner-cache:latest
           cat <<EOF > /kaniko/.docker/config.json
           {
             "auths": {
