@@ -22,70 +22,68 @@ concurrency:
 
 jobs:
   build-to-ghcr:
-    runs-on: fetch-repos-bot-runner-k8s-kaniko        # self-hosted label
+    runs-on: fetch-repos-bot-runner-k8s-kaniko
+
     container:
       image: gcr.io/kaniko-project/executor:v1.23.2-debug
-      options: --privileged                           # lets Kaniko access /proc/…
+
     permissions:
       contents: read
-      packages: write                                 # push to GHCR
+      packages: write          # push to GHCR
 
 
     steps:
       
       - name: Checkout repository
         uses: actions/checkout@v4.2.2
-      - name: Build & push with Kaniko
+        
+      - name: Build and Push Image to GHCR with kaniko
         env:
           GIT_USERNAME: ${{ github.actor }}
           GIT_PASSWORD: ${{ secrets.CR_PAT }}
         run: |
-          set -euo pipefail
           REPO_OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
-
-          IMAGE_BASE="ghcr.io/${REPO_OWNER_LC}/fetch-repos-bot-runner"
-          CACHE_IMG="ghcr.io/${REPO_OWNER_LC}/fetch-repos-bot-runner-cache"
-
-          # Use a writable directory for Kaniko auth
-          KANIKO_CONFIG_DIR="${{ runner.temp }}/kaniko/.docker"
-          mkdir -p "$KANIKO_CONFIG_DIR"
-          cat >"$KANIKO_CONFIG_DIR/config.json" <<EOF
-          { "auths": { "ghcr.io": { "auth": "$(echo -n "$GIT_USERNAME:$GIT_PASSWORD" | base64 -w0)" } } }
+          IMAGE_BASE=ghcr.io/$REPO_OWNER_LC/fetch-repos-bot-runner
+          CACHE_IMG=ghcr.io/$REPO_OWNER_LC/fetch-repos-bot-runner-cache:latest
+          cat <<EOF > /kaniko/.docker/config.json
+          {
+            "auths": {
+              "ghcr.io": {
+                "auth": "$(echo -n "$GIT_USERNAME:$GIT_PASSWORD" | base64 -w0)"
+              }
+            }
+          }
           EOF
 
-          SHORT_SHA=$(echo $GITHUB_SHA | head -c7)
-
-          /kaniko/executor \
-            --dockerfile="repos/fetch-repos/Dockerfile" \
+          /kaniko/executor --dockerfile="repos/fetch-repos/Dockerfile" \
             --context="${{ github.repositoryUrl }}#${{ github.ref }}#${{ github.sha }}" \
-            --destination="${IMAGE_BASE}:${SHORT_SHA}" \
-            ${KANIKO_CACHE_ARGS} \
-            --cache-repo="${CACHE_IMG}" \
-            --docker-config="$KANIKO_CONFIG_DIR" \
+            --destination="$IMAGE_BASE:$(echo $GITHUB_SHA | head -c7)" \
+            $KANIKO_CACHE_ARGS \
+            --cache-repo="$CACHE_IMG" \
             --push-retry 5
-
-          echo "IMAGE_BASE=${IMAGE_BASE}" >> $GITHUB_ENV
-          echo "SHORT_SHA=${SHORT_SHA}"   >> $GITHUB_ENV
 
       - name: Set NEW_TAG output
         id: set_tag
-        run: echo "NEW_TAG=${IMAGE_BASE}:${SHORT_SHA}" >>"$GITHUB_OUTPUT"
+        run: |
+          NEW_TAG="$IMAGE_BASE:$(echo $GITHUB_SHA | head -c7)"
+          echo "NEW_TAG=$NEW_TAG" >> $GITHUB_OUTPUT
 
-      - name: Update values.yaml
+      - name: Update image tag in values.yaml only
         env:
           NEW_TAG: ${{ steps.set_tag.outputs.NEW_TAG }}
         uses: mikefarah/yq@v4.45.4
         with:
           cmd: |
-            echo "Updating repos/fetch-repos/values.yaml → $NEW_TAG"
+            echo "Updating repos/fetch-repos/values.yaml to use tag $NEW_TAG"
             yq -i '.template.spec.containers[0].image = strenv(NEW_TAG)' repos/fetch-repos/values.yaml
 
       - name: Create or update tag-bump PR
-        uses: peter-evans/create-pull-request@v7
+        uses: peter-evans/create-pull-request@v7.0.8
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: chore/update-runner-image
-          commit-message: "chore: update runner image tag to ${{ steps.set_tag.outputs.NEW_TAG }}"
+          commit-message: |
+            chore: update runner image tag to ${{ steps.set_tag.outputs.NEW_TAG }}
           title: "chore: bump runner image → ${{ steps.set_tag.outputs.NEW_TAG }}"
           body: |
             Automated build updated:
