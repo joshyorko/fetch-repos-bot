@@ -25,7 +25,7 @@ jobs:
     runs-on: fetch-repos-bot-runner-k8s-kaniko
 
     container:
-      image: gcr.io/kaniko-project/executor:v1.23.2-debug
+      image: cgr.dev/chainguard/kaniko:latest
 
     permissions:
       contents: read
@@ -66,6 +66,7 @@ jobs:
               --cache-repo="$CACHE_IMG" \
               --push-retry 5
             echo "NEW_TAG=$MAIN_SHA_TAG" >> $GITHUB_ENV
+            echo "BUILT_TAGS=$MAIN_SHA_TAG,$LATEST_TAG" >> $GITHUB_ENV
           else
             /kaniko/executor --dockerfile="repos/fetch-repos/Dockerfile" \
               --context="${{ github.repositoryUrl }}#${{ github.ref }}#${{ github.sha }}" \
@@ -74,12 +75,54 @@ jobs:
               --cache-repo="$CACHE_IMG" \
               --push-retry 5
             echo "NEW_TAG=$BRANCH_SHA_TAG" >> $GITHUB_ENV
+            echo "BUILT_TAGS=$BRANCH_SHA_TAG" >> $GITHUB_ENV
           fi
+          
+          # Export variables for build summary
+          echo "IMAGE_BASE=$IMAGE_BASE" >> $GITHUB_ENV
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
+          echo "SHORT_SHA=$SHORT_SHA" >> $GITHUB_ENV
 
       - name: Set NEW_TAG output
         id: set_tag
         run: |
           echo "NEW_TAG=${NEW_TAG}" >> $GITHUB_OUTPUT
+
+      - name: Add build summary
+        if: always()
+        run: |
+          echo "## 🐳 Fetch-Repos Bot Runner Docker Image Built (Kaniko)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Details" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Image Base** | \`$IMAGE_BASE\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Primary Tag** | \`$NEW_TAG\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Commit SHA** | \`$GITHUB_SHA\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Short SHA** | \`$SHORT_SHA\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Branch** | \`$BRANCH_NAME\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Runner** | \`${{ runner.name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Build Tool** | Kaniko v1.23.2 |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Built Tags" >> $GITHUB_STEP_SUMMARY
+          IFS=',' read -ra TAGS <<< "$BUILT_TAGS"
+          for tag in "${TAGS[@]}"; do
+            echo "- \`$tag\`" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Pull Command" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "docker pull $NEW_TAG" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Build Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- **Context**: \`${{ github.repositoryUrl }}#${{ github.ref }}#${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Dockerfile**: \`repos/fetch-repos/Dockerfile\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Platform**: \`linux/amd64\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Cache**: Enabled (24h TTL)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Push Retries**: 5" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "_Job summary generated at $(date -u '+%Y-%m-%d %H:%M:%S UTC')_" >> $GITHUB_STEP_SUMMARY
     outputs:
       image_tag: ${{ steps.set_tag.outputs.NEW_TAG }}
 
@@ -113,17 +156,13 @@ jobs:
           reviewers: joshyorko
           draft: false
 
-      - name: Add build summary
+      - name: Add update summary
         if: always()
         run: |
-          echo "### :whale: Fetch-Repos Bot Runner Docker Image Built" >> $GITHUB_STEP_SUMMARY
+          echo "## 📝 Values Update Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "- **Image:** $IMAGE_BASE" >> $GITHUB_STEP_SUMMARY
-          echo "- **Tag:** $NEW_TAG" >> $GITHUB_STEP_SUMMARY
-          echo "- **Commit:** $GITHUB_SHA" >> $GITHUB_STEP_SUMMARY
-          echo "- **Branch:** $GITHUB_REF_NAME" >> $GITHUB_STEP_SUMMARY
+          echo "Updated \`repos/fetch-repos/values.yaml\` with new image tag:" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "You can pull the image with:" >> $GITHUB_STEP_SUMMARY
-          echo '\n```sh' >> $GITHUB_STEP_SUMMARY
-          echo "docker pull $NEW_TAG" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "**New Tag**: \`${{ needs.build-to-ghcr.outputs.image_tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "A pull request has been created to merge these changes." >> $GITHUB_STEP_SUMMARY
