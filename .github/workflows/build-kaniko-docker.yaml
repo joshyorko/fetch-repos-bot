@@ -1,4 +1,4 @@
-name: Build and Push Fetch Repos Bot Runner Docker Image with Kaniko
+name: Build & Push Fetch-Repos Bot Runner image (Kaniko)
 
 on:
   push:
@@ -14,55 +14,74 @@ on:
   workflow_dispatch:
 
 env:
-  IMAGE: ghcr.io/${{ github.repository_owner }}/fetch-repos-bot-runner       # base ref
+  IMAGE_BASE: ghcr.io/${{ github.repository_owner }}/fetch-repos-bot-runner
+  CACHE_IMG:  ghcr.io/${{ github.repository_owner }}/fetch-repos-bot-runner-cache:latest
 
 concurrency:
   group: kaniko-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build-and-push:
+  build:
     runs-on: fetch-repos-bot-runner-k8s-kaniko
-    # ‼️  Whole job runs inside Kaniko ⇒ secret-file always present
+
+    # 👇 whole job runs in Kaniko → Node is gone, but git is present
     container:
       image: gcr.io/kaniko-project/executor:v1.23.2-debug
 
     permissions:
-      contents: read              # checkout
-      packages: write             # push to GHCR
+      contents: read
+      packages: write          # push to GHCR
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Copy config files (robot, conda)
-        run: |
-          cp robot.yaml repos/fetch-repos/
-          cp conda.yaml repos/fetch-repos/
-
-      - name: Write GHCR auth file
+      # ------------------------------------------------------------------
+      # 1  Clone the repository with plain git (no Node, no checkout action)
+      # ------------------------------------------------------------------
+      - name: Clone repository
         env:
-          GHCR_PAT: ${{ secrets.CR_PAT }}        # PAT with write:packages (+repo if private)
+          PAT: ${{ secrets.GHCR_PAT }}          # PAT with write:packages (+repo if private)
+        run: |
+          git config --global url."https://${{ github.actor }}:${PAT}@github.com/".insteadOf "https://github.com/"
+          git clone --depth 1 \
+                    --branch "${GITHUB_REF##*/}" \
+                    "https://github.com/${{ github.repository }}" repo
+
+          # copy extra files into build context
+          cp robot.yaml repo/repos/fetch-repos/
+          cp conda.yaml repo/repos/fetch-repos/
+
+      # ------------------------------------------------------------------
+      # 2  Write GHCR auth file for Kaniko
+      # ------------------------------------------------------------------
+      - name: Write /kaniko/.docker/config.json
+        env:
+          PAT: ${{ secrets.GHCR_PAT }}
         run: |
           mkdir -p /kaniko/.docker
-          echo '{"auths":{"ghcr.io":{"auth":"'"$(echo -n "${{ github.actor }}:${GHCR_PAT}" | base64 -w0)"'"}}}' \
+          echo '{"auths":{"ghcr.io":{"auth":"'"$(echo -n '${{ github.actor }}:${PAT}' | base64 -w0)"'"}}}' \
           > /kaniko/.docker/config.json
 
-      - name: Build & push SHA tag
+      # ------------------------------------------------------------------
+      # 3  Build & push commit-SHA tag
+      # ------------------------------------------------------------------
+      - name: Build + push ${IMAGE_BASE}:${{ github.sha }}
         run: |
           /kaniko/executor \
-            --dockerfile=repos/fetch-repos/Dockerfile \
-            --context=./repos/fetch-repos \
-            --destination=${{ env.IMAGE }}:${{ github.sha }} \
+            --dockerfile=repo/repos/fetch-repos/Dockerfile \
+            --context=repo/repos/fetch-repos \
+            --destination=${IMAGE_BASE}:${GITHUB_SHA} \
             --cache=true \
-            --cache-repo=${{ env.IMAGE }}-cache:latest
+            --cache-repo=${CACHE_IMG}
 
-      - name: Build & push latest (main branch only)
+      # ------------------------------------------------------------------
+      # 4  Tag :latest on main
+      # ------------------------------------------------------------------
+      - name: Build + push :latest
         if: github.ref == 'refs/heads/main'
         run: |
           /kaniko/executor \
-            --dockerfile=repos/fetch-repos/Dockerfile \
-            --context=./repos/fetch-repos \
-            --destination=${{ env.IMAGE }}:latest \
+            --dockerfile=repo/repos/fetch-repos/Dockerfile \
+            --context=repo/repos/fetch-repos \
+            --destination=${IMAGE_BASE}:latest \
             --cache=true \
-            --cache-repo=${{ env.IMAGE }}-cache:latest
+            --cache-repo=${CACHE_IMG}
