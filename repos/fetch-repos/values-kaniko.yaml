@@ -65,6 +65,28 @@ template:
             - key: .dockerconfigjson
               path: config.json
 
+# Add jobTemplate block to mount the secret into every job-pod
+# values-kaniko.yaml  (replace the whole jobTemplate with this)
+jobTemplate:
+  spec:
+    # add the secret volume
+    volumes:
+      - name: docker-config
+        secret:
+          secretName: ghcr-login
+          items:
+            - key: .dockerconfigjson
+              path: config.json
+    # patch *all* containers (no name field → merge into every container)
+    containers:
+      - volumeMounts:
+          - name: docker-config
+            mountPath: /kaniko/.docker
+            readOnly: true
+        env:                                 # (optional but nice)
+          - name: DOCKER_CONFIG
+            value: /kaniko/.docker
+
 # --------------------------------------------------------------------
 # Scaling configuration
 # --------------------------------------------------------------------
