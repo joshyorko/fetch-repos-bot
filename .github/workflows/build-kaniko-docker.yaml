@@ -32,7 +32,7 @@ jobs:
         env: { DOCKER_CONFIG: /kaniko/.docker }    # picked up from secret
         with:
           args: >
-            --dockerfile=Dockerfile
+            --dockerfile=repos/fetch-repos/Dockerfile
             --context=.
             --destination=ghcr.io/joshyorko/fetch-repos-bot-runner:${{ github.sha }}
             --cache=true
@@ -46,7 +46,7 @@ jobs:
         with:
           args: >
             --dockerfile=repos/fetch-repos/Dockerfile
-            --context=./repos/fetch-repos
+            --context=.
             --destination=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
             --cache=true
             --cache-repo=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-cache:latest
