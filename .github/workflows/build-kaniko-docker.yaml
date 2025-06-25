@@ -40,10 +40,13 @@ jobs:
           GIT_USERNAME: ${{ github.actor }}
           GIT_PASSWORD: ${{ secrets.CR_PAT }}
         run: |
-          # Set lowercase image names
-          REPO_LC=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          # Set lowercase image names (replace / with -)
+          REPO_LC=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
           IMAGE_BASE="ghcr.io/${REPO_LC}-runner"
           CACHE_IMG="ghcr.io/${REPO_LC}-runner-cache:latest"
+          
+          echo "Building image: $IMAGE_BASE"
+          echo "Using cache: $CACHE_IMG"
           
           cat <<EOF > /kaniko/.docker/config.json
           {
@@ -65,7 +68,7 @@ jobs:
       - name: Set NEW_TAG output
         id: set_tag
         run: |
-          REPO_LC=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          REPO_LC=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]' | tr '/' '-')
           IMAGE_BASE="ghcr.io/${REPO_LC}-runner"
           NEW_TAG="$IMAGE_BASE:$(echo $GITHUB_SHA | head -c7)"
           echo "NEW_TAG=$NEW_TAG" >> $GITHUB_OUTPUT
