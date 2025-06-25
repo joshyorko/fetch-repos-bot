@@ -35,11 +35,18 @@ jobs:
 
     steps:
       # ------------------------------------------------------------------
+      # 0  Install git in Kaniko container
+      # ------------------------------------------------------------------
+      - name: Install git
+        run: |
+          apt-get update && apt-get install -y git
+
+      # ------------------------------------------------------------------
       # 1  Clone the repository with plain git (no Node, no checkout action)
       # ------------------------------------------------------------------
       - name: Clone repository
         env:
-          PAT: ${{ secrets.GHCR_PAT }}          # PAT with write:packages (+repo if private)
+          PAT: ${{ secrets.CR_PAT }}          # PAT with write:packages (+repo if private)
         run: |
           git config --global url."https://${{ github.actor }}:${PAT}@github.com/".insteadOf "https://github.com/"
           git clone --depth 1 \
@@ -55,7 +62,7 @@ jobs:
       # ------------------------------------------------------------------
       - name: Write /kaniko/.docker/config.json
         env:
-          PAT: ${{ secrets.GHCR_PAT }}
+          PAT: ${{ secrets.CR_PAT }}
         run: |
           mkdir -p /kaniko/.docker
           echo '{"auths":{"ghcr.io":{"auth":"'"$(echo -n '${{ github.actor }}:${PAT}' | base64 -w0)"'"}}}' \
