@@ -24,78 +24,19 @@ concurrency:
 jobs:
   build-and-push:
     runs-on: fetch-repos-bot-runner-k8s-kaniko
-    container:
-      image: ghcr.io/actions/actions-runner:latest   # or any image that has git+node
-      options: --user 1000                           # keeps file permissions nice
-    defaults:
-      run:
-        shell: bash
-    permissions:
-      contents: write
-      packages: write
-      pull-requests: write
-
+    container: { image: cgr.dev/chainguard/actions-runner:latest }  # slim base
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4.2.2
-
-      - name: Copy configuration files to repos/fetch-repos directory
-        run: |
-          cp robot.yaml repos/fetch-repos/
-          cp conda.yaml repos/fetch-repos/
-
-      - name: Extract metadata
-        id: meta
-        run: |
-          # Generate tags manually since we're not using docker/metadata-action
-          BRANCH=${GITHUB_REF#refs/heads/}
-          SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
-          if [ "$BRANCH" = "main" ]; then
-            TAGS="$REGISTRY/$IMAGE_NAME:latest,$REGISTRY/$IMAGE_NAME:${BRANCH}-${SHA}"
-          else
-            TAGS="$REGISTRY/$IMAGE_NAME:${BRANCH}-${SHA}"
-          fi
-          echo "tags=${TAGS}" >> $GITHUB_OUTPUT
-          echo "Generated tags: ${TAGS}"
-
-      - name: Set NEW_TAG output
-        id: set_tag
-        run: |
-          TAGS="${{ steps.meta.outputs.tags }}"
-          # Get the first tag that is not 'latest', keep the full image:tag string
-          NEW_TAG=$(echo "$TAGS" | tr ',' '\n' | grep -v ':latest' | head -n1)
-          echo "NEW_TAG=$NEW_TAG" >> $GITHUB_OUTPUT
-          echo "New tag: $NEW_TAG"
-
-      - name: Build and push Docker image with Kaniko
+      - uses: actions/checkout@v4
+      - name: Kaniko build
         uses: docker://gcr.io/kaniko-project/executor:v1.23.2
-        env:
-          # Kaniko looks here for auth
-          DOCKER_CONFIG: /kaniko/.docker/
+        env: { DOCKER_CONFIG: /kaniko/.docker }    # picked up from secret
         with:
           args: >
-            --dockerfile=repos/fetch-repos/Dockerfile
-            --context=./repos/fetch-repos
-            --destination=${{ steps.set_tag.outputs.NEW_TAG }}
+            --dockerfile=Dockerfile
+            --context=.
+            --destination=ghcr.io/joshyorko/fetch-repos-bot-runner:${{ github.sha }}
             --cache=true
-            --cache-repo=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-cache:latest
-            --cache-dir=/workspace/.kaniko/cache
-            --snapshotMode=redo
-            --push-retry=3
-
-      # --- BuildKit fallback example (no build, just a template) ---
-      # - name: Build and push Docker image with BuildKit (fallback example)
-      #   uses: docker/build-push-action@v5
-      #   with:
-      #     context: ${{ github.workspace }}/repos/fetch-repos
-      #     file: ${{ github.workspace }}/repos/fetch-repos/Dockerfile
-      #     push: true
-      #     tags: ${{ steps.set_tag.outputs.NEW_TAG }}
-      #     cache-from: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-cache
-      #     cache-to: type=registry,ref=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-cache,mode=max
-      #     builder: kube-builder
-      #     driver: kubernetes
-      #     # See https://github.com/docker/buildx/blob/master/docs/reference/buildx_create.md#kubernetes-driver for setup
+            --cache-repo=ghcr.io/joshyorko/fetch-repos-bot-runner-cache:latest
 
       - name: Build and push latest tag (if main branch)
         if: github.ref == 'refs/heads/main'
@@ -113,40 +54,3 @@ jobs:
             --snapshotMode=redo
             --push-retry=3
 
-      - name: Clean up copied files
-        run: |
-          rm -f repos/fetch-repos/robot.yaml repos/fetch-repos/conda.yaml
-
-      - name: Update image tag in Kaniko values.yaml only
-        env:
-          NEW_TAG: ${{ steps.set_tag.outputs.NEW_TAG }}
-        run: |
-          # Install yq if not available in the runner
-          if ! command -v yq &> /dev/null; then
-            wget -qO /tmp/yq https://github.com/mikefarah/yq/releases/download/v4.44.3/yq_linux_amd64_v4.44.3
-            chmod +x /tmp/yq
-            YQ_CMD="/tmp/yq"
-          else
-            YQ_CMD="yq"
-          fi
-          echo "Updating repos/fetch-repos/values-kaniko.yaml to use tag $NEW_TAG"
-          $YQ_CMD -i '.template.spec.containers[0].image = env(NEW_TAG)' repos/fetch-repos/values-kaniko.yaml
-
-      - name: Create or update tag-bump PR for Kaniko
-        uses: peter-evans/create-pull-request@v7.0.8
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          branch: chore/update-kaniko-runner-image-${{ github.sha }}
-          commit-message: |
-            chore: update Kaniko runner image tag to ${{ steps.set_tag.outputs.NEW_TAG }}
-          title: "chore: bump Kaniko runner image → ${{ steps.set_tag.outputs.NEW_TAG }}"
-          body: |
-            Automated Kaniko build updated:
-            • repos/fetch-repos/values-kaniko.yaml  
-            Built with Kaniko in Kubernetes container-mode (no privileged dind).
-            _Generated by the Build & Push Kaniko workflow._
-          reviewers: joshyorko
-          draft: false
-
-# NOTE: To run Kaniko as UID 1000, set this in your runner template or SecurityContext, not in the workflow YAML.
-# Ensure your imagePullSecrets and volume secretName are both set to 'ghcr-login' in your Helm chart/values-kaniko.yaml for auth consistency.
