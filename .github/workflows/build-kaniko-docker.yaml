@@ -65,7 +65,7 @@ jobs:
               $KANIKO_CACHE_ARGS \
               --cache-repo="$CACHE_IMG" \
               --push-retry 5
-            echo "NEW_TAG=$LATEST_TAG" >> $GITHUB_ENV
+            echo "NEW_TAG=$MAIN_SHA_TAG" >> $GITHUB_ENV
           else
             /kaniko/executor --dockerfile="repos/fetch-repos/Dockerfile" \
               --context="${{ github.repositoryUrl }}#${{ github.ref }}#${{ github.sha }}" \
