@@ -24,7 +24,7 @@ concurrency:
 jobs:
   build-and-push:
     runs-on: fetch-repos-bot-runner-k8s-kaniko
-    container: { image: cgr.dev/chainguard/actions-runner:latest }  # slim base
+    container: { image: ghcr.io/actions/actions-runner:latest }  # slim base
     steps:
       - uses: actions/checkout@v4
       - name: Kaniko build
