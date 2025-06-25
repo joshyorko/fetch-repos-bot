@@ -16,16 +16,16 @@ on:
 env:
   IMAGE_BASE: ghcr.io/${{ github.repository_owner }}/fetch-repos-bot-runner
   CACHE_IMG:  ghcr.io/${{ github.repository_owner }}/fetch-repos-bot-runner-cache:latest
+  KANIKO_CACHE_ARGS: "--cache=true --cache-copy-layers=true --cache-ttl=24h"
 
 concurrency:
   group: kaniko-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
+  build-to-ghcr:
     runs-on: fetch-repos-bot-runner-k8s-kaniko
 
-    # 👇 whole job runs in Kaniko → Node is gone, but git is present
     container:
       image: gcr.io/kaniko-project/executor:v1.23.2-debug
 
@@ -34,61 +34,24 @@ jobs:
       packages: write          # push to GHCR
 
     steps:
-      # ------------------------------------------------------------------
-      # 0  Install git in Kaniko container
-      # ------------------------------------------------------------------
-      - name: Install git
-        run: |
-          apt-get update && apt-get install -y git
-
-      # ------------------------------------------------------------------
-      # 1  Clone the repository with plain git (no Node, no checkout action)
-      # ------------------------------------------------------------------
-      - name: Clone repository
+      - name: Build and Push Image to GHCR with kaniko
         env:
-          PAT: ${{ secrets.CR_PAT }}          # PAT with write:packages (+repo if private)
+          GIT_USERNAME: ${{ github.actor }}
+          GIT_PASSWORD: ${{ secrets.CR_PAT }}
         run: |
-          git config --global url."https://${{ github.actor }}:${PAT}@github.com/".insteadOf "https://github.com/"
-          git clone --depth 1 \
-                    --branch "${GITHUB_REF##*/}" \
-                    "https://github.com/${{ github.repository }}" repo
+          cat <<EOF > /kaniko/.docker/config.json
+          {
+            "auths": {
+              "ghcr.io": {
+                "auth": "$(echo -n "$GIT_USERNAME:$GIT_PASSWORD" | base64 -w0)"
+              }
+            }
+          }
+          EOF
 
-          # copy extra files into build context
-          cp robot.yaml repo/repos/fetch-repos/
-          cp conda.yaml repo/repos/fetch-repos/
-
-      # ------------------------------------------------------------------
-      # 2  Write GHCR auth file for Kaniko
-      # ------------------------------------------------------------------
-      - name: Write /kaniko/.docker/config.json
-        env:
-          PAT: ${{ secrets.CR_PAT }}
-        run: |
-          mkdir -p /kaniko/.docker
-          echo '{"auths":{"ghcr.io":{"auth":"'"$(echo -n '${{ github.actor }}:${PAT}' | base64 -w0)"'"}}}' \
-          > /kaniko/.docker/config.json
-
-      # ------------------------------------------------------------------
-      # 3  Build & push commit-SHA tag
-      # ------------------------------------------------------------------
-      - name: Build + push ${IMAGE_BASE}:${{ github.sha }}
-        run: |
-          /kaniko/executor \
-            --dockerfile=repo/repos/fetch-repos/Dockerfile \
-            --context=repo/repos/fetch-repos \
-            --destination=${IMAGE_BASE}:${GITHUB_SHA} \
-            --cache=true \
-            --cache-repo=${CACHE_IMG}
-
-      # ------------------------------------------------------------------
-      # 4  Tag :latest on main
-      # ------------------------------------------------------------------
-      - name: Build + push :latest
-        if: github.ref == 'refs/heads/main'
-        run: |
-          /kaniko/executor \
-            --dockerfile=repo/repos/fetch-repos/Dockerfile \
-            --context=repo/repos/fetch-repos \
-            --destination=${IMAGE_BASE}:latest \
-            --cache=true \
-            --cache-repo=${CACHE_IMG}
+          /kaniko/executor --dockerfile="repos/fetch-repos/Dockerfile" \
+            --context="${{ github.repositoryUrl }}#${{ github.ref }}#${{ github.sha }}" \
+            --destination="$IMAGE_BASE:$(echo $GITHUB_SHA | head -c7)" \
+            $KANIKO_CACHE_ARGS \
+            --cache-repo="$CACHE_IMG" \
+            --push-retry 5
