@@ -39,7 +39,7 @@ jobs:
         run: |
           REPO_OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           IMAGE_BASE=ghcr.io/$REPO_OWNER_LC/fetch-repos-bot-runner
-          CACHE_IMG=ghcr.io/$REPO_OWNER_LC/fetch-repos-bot-runner-cache:latest
+          CACHE_IMG=ghcr.io/$REPO_OWNER_LC/fetch-repos-bot-runner-cache
           cat <<EOF > /kaniko/.docker/config.json
           {
             "auths": {
