@@ -43,7 +43,7 @@ jobs:
           # Set lowercase image names
           REPO_LC=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
           IMAGE_BASE="ghcr.io/${REPO_LC}-runner"
-          CACHE_REPO="${IMAGE_BASE}-cache"        # ← no tag!
+          CACHE_IMG="ghcr.io/${REPO_LC}-runner-cache:latest"
           
           cat <<EOF > /kaniko/.docker/config.json
           {
@@ -59,7 +59,7 @@ jobs:
             --context="${{ github.repositoryUrl }}#${{ github.ref }}#${{ github.sha }}" \
             --destination="$IMAGE_BASE:$(echo $GITHUB_SHA | head -c7)" \
             $KANIKO_CACHE_ARGS \
-            --cache-repo="$CACHE_REPO" \
+            --cache-repo="$CACHE_IMG" \
             --push-retry 5
 
       - name: Set NEW_TAG output
