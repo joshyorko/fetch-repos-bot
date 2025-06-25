@@ -1,56 +1,39 @@
-name: Build and Push Fetch Repos Bot Runner Docker Image with Kaniko
-
-on:
-  push:
-    paths:
-      - 'robot.yaml'
-      - 'conda.yaml'
-      - 'repos/fetch-repos/Dockerfile'
-  pull_request:
-    paths:
-      - 'robot.yaml'
-      - 'conda.yaml'
-      - 'repos/fetch-repos/Dockerfile'
-  workflow_dispatch:
+name: Build & Push with Kaniko
+on: [workflow_dispatch]
 
 env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/fetch-repos-bot-runner
-
-concurrency:
-  group: kaniko-${{ github.ref }}
-  cancel-in-progress: true
+  IMAGE: ghcr.io/joshyorko/fetch-repos-bot-runner
 
 jobs:
-  build-and-push:
+  build:
     runs-on: fetch-repos-bot-runner-k8s-kaniko
-    container: { image: ghcr.io/actions/actions-runner:latest }  # slim base
+    # Run the whole job *inside* Kaniko’s image — no docker:// indirection
+    container:
+      image: gcr.io/kaniko-project/executor:v1.23.2-debug
+    permissions:
+      contents: read           # checkout
+      packages: write          # push to GHCR
+
     steps:
       - uses: actions/checkout@v4
-      - name: Kaniko build
-        uses: docker://gcr.io/kaniko-project/executor:v1.23.2
-        env: { DOCKER_CONFIG: /kaniko/.docker }    # picked up from secret
-        with:
-          args: >
-            --dockerfile=repos/fetch-repos/Dockerfile
-            --context=.
-            --destination=ghcr.io/joshyorko/fetch-repos-bot-runner:${{ github.sha }}
-            --cache=true
-            --cache-repo=ghcr.io/joshyorko/fetch-repos-bot-runner-cache:latest
 
-      - name: Build and push latest tag (if main branch)
+      - name: Write GHCR auth file
+        run: |
+          mkdir -p /kaniko/.docker
+          echo "{\"auths\":{\"ghcr.io\":{\"auth\":\"$(echo -n '${{ github.actor }}:${{ secrets.CR_PAT }}' | base64 -w0)\"}}}" \
+          > /kaniko/.docker/config.json
+
+      - name: Build & push
+        run: |
+          /kaniko/executor --dockerfile Dockerfile \
+                           --context . \
+                           --destination ${IMAGE}:${GITHUB_SHA::7} \
+                           --cache=true --cache-repo=${IMAGE}-cache:latest
+
+      - name: Tag latest on default branch
         if: github.ref == 'refs/heads/main'
-        uses: docker://gcr.io/kaniko-project/executor:v1.23.2
-        env:
-          DOCKER_CONFIG: /kaniko/.docker/
-        with:
-          args: >
-            --dockerfile=repos/fetch-repos/Dockerfile
-            --context=.
-            --destination=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
-            --cache=true
-            --cache-repo=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-cache:latest
-            --cache-dir=/workspace/.kaniko/cache
-            --snapshotMode=redo
-            --push-retry=3
-
+        run: |
+          /kaniko/executor --dockerfile Dockerfile \
+                           --context . \
+                           --destination ${IMAGE}:latest \
+                           --cache=true --cache-repo=${IMAGE}-cache:latest

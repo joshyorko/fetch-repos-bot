@@ -1,103 +1,24 @@
-# --------------------------------------------------------------------
-# GitHub configuration
-# --------------------------------------------------------------------
-githubConfigUrl: "https://github.com/joshyorko/fetch-repos-bot"
-githubConfigSecret: pre-defined-secret
+runnerScaleSetName: fetch-repos-bot-runner-k8s-kaniko
 
-# --------------------------------------------------------------------
-# Runner scale set configuration for Kaniko builds
-# --------------------------------------------------------------------
-runnerScaleSetName: "fetch-repos-bot-runner-k8s-kaniko"
+githubConfigUrl: https://github.com/joshyorko/fetch-repos-bot
+githubConfigSecret: pre-defined-secret     # PAT or GitHub App for runner registration
 
-# --------------------------------------------------------------------
-# Kubernetes container mode configuration
-# --------------------------------------------------------------------
 containerMode:
-  type: "kubernetes"
+  type: kubernetes
   kubernetesModeWorkVolumeClaim:
+    storageClassName: local-path
     accessModes: ["ReadWriteOnce"]
-    storageClassName: "local-path"  # Adjust for your cluster (e.g., gp2, local-path, etc.)
     resources:
-      requests:
-        storage: 5Gi  # Kaniko needs scratch space for layer cache and build context
+      requests: { storage: 5Gi }
 
-# --------------------------------------------------------------------
-# Runner Pod template configuration for Kaniko
-# --------------------------------------------------------------------
 template:
   spec:
-    # Removed dnsPolicy and dnsConfig to use cluster defaults
-    
-    # Image pull secrets for accessing private container registries
-    imagePullSecrets:
-      - name: ghcr-login  # Secret for GHCR authentication
-    
+    # let Kaniko write its own auth file, no extra volumes needed
+    imagePullSecrets: [{ name: ghcr-login }]
     containers:
       - name: runner
-        image: ghcr.io/actions/actions-runner:latest  # Use stock GitHub Actions runner image
-        imagePullPolicy: Always
+        image: ghcr.io/actions/actions-runner:latest
         command: ["/home/runner/run.sh"]
-        resources:
-          requests:
-            cpu: "500m"
-            memory: "1Gi"
-          limits:
-            cpu: "500m"
-            memory: "1Gi"
-        
-        # Environment variables for Kaniko authentication
         env:
-          - name: DOCKER_CONFIG
-            value: "/kaniko/.docker/"
-        
-        # Volume mounts for Kaniko authentication
-        volumeMounts:
-          - name: docker-config
-            mountPath: /kaniko/.docker
-            readOnly: true
-    
-    # Volumes for Kaniko authentication
-    volumes:
-      - name: docker-config
-        secret:
-          secretName: ghcr-login 
-          items:
-            - key: .dockerconfigjson
-              path: config.json
-
-# Add jobTemplate block to mount the secret into every job-pod
-# values-kaniko.yaml  (replace the whole jobTemplate with this)
-jobTemplate:
-  spec:
-    # add the secret volume
-    volumes:
-      - name: docker-config
-        secret:
-          secretName: ghcr-login
-          items:
-            - key: .dockerconfigjson
-              path: config.json
-    # patch *all* containers (no name field → merge into every container)
-    containers:
-      - volumeMounts:
-          - name: docker-config
-            mountPath: /kaniko/.docker
-            readOnly: true
-        env:                                 # (optional but nice)
-          - name: DOCKER_CONFIG
-            value: /kaniko/.docker
-
-# --------------------------------------------------------------------
-# Scaling configuration
-# --------------------------------------------------------------------
-maxRunners: 3  # Reduced since Kaniko builds are more resource-efficient
-minRunners: 0
-
-# --------------------------------------------------------------------
-# RBAC for Kubernetes container mode
-# This is automatically handled by the ARC Helm chart when containerMode.type is set to "kubernetes"
-# The chart will create the necessary ServiceAccount, Role, and RoleBinding for:
-# - Creating/managing pods in the namespace
-# - Creating/managing secrets for job isolation
-# - Creating/managing PVCs for work volumes
-# --------------------------------------------------------------------
+          - name: ACTIONS_RUNNER_REQUIRE_JOB_CONTAINER
+            value: "false"   # lets you mix shell + container steps
