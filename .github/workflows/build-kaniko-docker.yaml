@@ -9,7 +9,7 @@ jobs:
     runs-on: fetch-repos-bot-runner-k8s-kaniko
     # Run the whole job *inside* Kaniko’s image — no docker:// indirection
     container:
-      image: gcr.io/kaniko-project/executor:v1.23.2-debug
+      image: gcr.io/kaniko-project/executor:v1.23.2
     permissions:
       contents: read           # checkout
       packages: write          # push to GHCR
