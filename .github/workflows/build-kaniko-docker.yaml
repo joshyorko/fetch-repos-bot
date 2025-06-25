@@ -44,7 +44,8 @@ jobs:
           BRANCH_NAME=$(echo "${GITHUB_REF#refs/heads/}" | tr '/' '-')
           SHORT_SHA=$(echo $GITHUB_SHA | head -c7)
           MAIN_BRANCH="main"
-          MAIN_LATEST_TAG="$IMAGE_BASE:main-latest"
+          MAIN_SHA_TAG="$IMAGE_BASE:main-$SHORT_SHA"
+          LATEST_TAG="$IMAGE_BASE:latest"
           BRANCH_SHA_TAG="$IMAGE_BASE:$BRANCH_NAME-$SHORT_SHA"
           cat <<EOF > /kaniko/.docker/config.json
           {
@@ -56,24 +57,22 @@ jobs:
           }
           EOF
 
-          # Always push branch-SHA tag
-          /kaniko/executor --dockerfile="repos/fetch-repos/Dockerfile" \
-            --context="${{ github.repositoryUrl }}#${{ github.ref }}#${{ github.sha }}" \
-            --destination="$BRANCH_SHA_TAG" \
-            $KANIKO_CACHE_ARGS \
-            --cache-repo="$CACHE_IMG" \
-            --push-retry 5
-
-          # If on main branch, also push main-latest tag
           if [ "$BRANCH_NAME" = "$MAIN_BRANCH" ]; then
             /kaniko/executor --dockerfile="repos/fetch-repos/Dockerfile" \
               --context="${{ github.repositoryUrl }}#${{ github.ref }}#${{ github.sha }}" \
-              --destination="$MAIN_LATEST_TAG" \
+              --destination="$MAIN_SHA_TAG" \
+              --destination="$LATEST_TAG" \
               $KANIKO_CACHE_ARGS \
               --cache-repo="$CACHE_IMG" \
               --push-retry 5
-            echo "NEW_TAG=$MAIN_LATEST_TAG" >> $GITHUB_ENV
+            echo "NEW_TAG=$LATEST_TAG" >> $GITHUB_ENV
           else
+            /kaniko/executor --dockerfile="repos/fetch-repos/Dockerfile" \
+              --context="${{ github.repositoryUrl }}#${{ github.ref }}#${{ github.sha }}" \
+              --destination="$BRANCH_SHA_TAG" \
+              $KANIKO_CACHE_ARGS \
+              --cache-repo="$CACHE_IMG" \
+              --push-retry 5
             echo "NEW_TAG=$BRANCH_SHA_TAG" >> $GITHUB_ENV
           fi
 
