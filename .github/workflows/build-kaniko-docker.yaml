@@ -31,12 +31,7 @@ jobs:
       contents: read
       packages: write          # push to GHCR
 
-
     steps:
-      
-      - name: Checkout repository
-        uses: actions/checkout@v4.2.2
-        
       - name: Build and Push Image to GHCR with kaniko
         env:
           GIT_USERNAME: ${{ github.actor }}
