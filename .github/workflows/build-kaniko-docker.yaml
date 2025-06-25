@@ -1,39 +1,68 @@
-name: Build & Push with Kaniko
-on: [workflow_dispatch]
+name: Build and Push Fetch Repos Bot Runner Docker Image with Kaniko
+
+on:
+  push:
+    paths:
+      - 'robot.yaml'
+      - 'conda.yaml'
+      - 'repos/fetch-repos/Dockerfile'
+  pull_request:
+    paths:
+      - 'robot.yaml'
+      - 'conda.yaml'
+      - 'repos/fetch-repos/Dockerfile'
+  workflow_dispatch:
 
 env:
-  IMAGE: ghcr.io/joshyorko/fetch-repos-bot-runner
+  IMAGE: ghcr.io/${{ github.repository_owner }}/fetch-repos-bot-runner       # base ref
+
+concurrency:
+  group: kaniko-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
-  build:
+  build-and-push:
     runs-on: fetch-repos-bot-runner-k8s-kaniko
-    # Run the whole job *inside* Kaniko’s image — no docker:// indirection
+    # ‼️  Whole job runs inside Kaniko ⇒ secret-file always present
     container:
-      image: gcr.io/kaniko-project/executor:v1.23.2
+      image: gcr.io/kaniko-project/executor:v1.23.2-debug
+
     permissions:
-      contents: read           # checkout
-      packages: write          # push to GHCR
+      contents: read              # checkout
+      packages: write             # push to GHCR
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Copy config files (robot, conda)
+        run: |
+          cp robot.yaml repos/fetch-repos/
+          cp conda.yaml repos/fetch-repos/
 
       - name: Write GHCR auth file
+        env:
+          GHCR_PAT: ${{ secrets.CR_PAT }}        # PAT with write:packages (+repo if private)
         run: |
           mkdir -p /kaniko/.docker
-          echo "{\"auths\":{\"ghcr.io\":{\"auth\":\"$(echo -n '${{ github.actor }}:${{ secrets.CR_PAT }}' | base64 -w0)\"}}}" \
+          echo '{"auths":{"ghcr.io":{"auth":"'"$(echo -n "${{ github.actor }}:${GHCR_PAT}" | base64 -w0)"'"}}}' \
           > /kaniko/.docker/config.json
 
-      - name: Build & push
+      - name: Build & push SHA tag
         run: |
-          /kaniko/executor --dockerfile Dockerfile \
-                           --context . \
-                           --destination ${IMAGE}:${GITHUB_SHA::7} \
-                           --cache=true --cache-repo=${IMAGE}-cache:latest
+          /kaniko/executor \
+            --dockerfile=repos/fetch-repos/Dockerfile \
+            --context=./repos/fetch-repos \
+            --destination=${{ env.IMAGE }}:${{ github.sha }} \
+            --cache=true \
+            --cache-repo=${{ env.IMAGE }}-cache:latest
 
-      - name: Tag latest on default branch
+      - name: Build & push latest (main branch only)
         if: github.ref == 'refs/heads/main'
         run: |
-          /kaniko/executor --dockerfile Dockerfile \
-                           --context . \
-                           --destination ${IMAGE}:latest \
-                           --cache=true --cache-repo=${IMAGE}-cache:latest
+          /kaniko/executor \
+            --dockerfile=repos/fetch-repos/Dockerfile \
+            --context=./repos/fetch-repos \
+            --destination=${{ env.IMAGE }}:latest \
+            --cache=true \
+            --cache-repo=${{ env.IMAGE }}-cache:latest
