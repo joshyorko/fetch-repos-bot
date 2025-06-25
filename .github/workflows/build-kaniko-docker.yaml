@@ -25,7 +25,7 @@ jobs:
     runs-on: fetch-repos-bot-runner-k8s-kaniko
 
     container:
-      image: cgr.dev/chainguard/kaniko:latest
+      image: gcr.io/kaniko-project/executor:v1.24.0-debug
 
     permissions:
       contents: read
