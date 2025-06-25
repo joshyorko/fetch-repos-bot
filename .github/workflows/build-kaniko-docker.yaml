@@ -33,6 +33,7 @@ jobs:
 
     steps:
       - name: Build and Push Image to GHCR with kaniko
+        id: kaniko_build
         env:
           GIT_USERNAME: ${{ github.actor }}
           GIT_PASSWORD: ${{ secrets.CR_PAT }}
@@ -40,6 +41,11 @@ jobs:
           REPO_OWNER_LC=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
           IMAGE_BASE=ghcr.io/$REPO_OWNER_LC/fetch-repos-bot-runner
           CACHE_IMG=ghcr.io/$REPO_OWNER_LC/fetch-repos-bot-runner-cache
+          BRANCH_NAME=$(echo "${GITHUB_REF#refs/heads/}" | tr '/' '-')
+          SHORT_SHA=$(echo $GITHUB_SHA | head -c7)
+          MAIN_BRANCH="main"
+          MAIN_LATEST_TAG="$IMAGE_BASE:main-latest"
+          BRANCH_SHA_TAG="$IMAGE_BASE:$BRANCH_NAME-$SHORT_SHA"
           cat <<EOF > /kaniko/.docker/config.json
           {
             "auths": {
@@ -50,22 +56,35 @@ jobs:
           }
           EOF
 
+          # Always push branch-SHA tag
           /kaniko/executor --dockerfile="repos/fetch-repos/Dockerfile" \
             --context="${{ github.repositoryUrl }}#${{ github.ref }}#${{ github.sha }}" \
-            --destination="$IMAGE_BASE:$(echo $GITHUB_SHA | head -c7)" \
+            --destination="$BRANCH_SHA_TAG" \
             $KANIKO_CACHE_ARGS \
             --cache-repo="$CACHE_IMG" \
             --push-retry 5
 
+          # If on main branch, also push main-latest tag
+          if [ "$BRANCH_NAME" = "$MAIN_BRANCH" ]; then
+            /kaniko/executor --dockerfile="repos/fetch-repos/Dockerfile" \
+              --context="${{ github.repositoryUrl }}#${{ github.ref }}#${{ github.sha }}" \
+              --destination="$MAIN_LATEST_TAG" \
+              $KANIKO_CACHE_ARGS \
+              --cache-repo="$CACHE_IMG" \
+              --push-retry 5
+            echo "NEW_TAG=$MAIN_LATEST_TAG" >> $GITHUB_ENV
+          else
+            echo "NEW_TAG=$BRANCH_SHA_TAG" >> $GITHUB_ENV
+          fi
+
       - name: Set NEW_TAG output
         id: set_tag
         run: |
-          NEW_TAG="$IMAGE_BASE:$(echo $GITHUB_SHA | head -c7)"
-          echo "NEW_TAG=$NEW_TAG" >> $GITHUB_OUTPUT
+          echo "NEW_TAG=${NEW_TAG}" >> $GITHUB_OUTPUT
 
       - name: Update image tag in values.yaml only
         env:
-          NEW_TAG: ${{ steps.set_tag.outputs.NEW_TAG }}
+          NEW_TAG: ${{ env.NEW_TAG }}
         uses: mikefarah/yq@v4.45.4
         with:
           cmd: |
