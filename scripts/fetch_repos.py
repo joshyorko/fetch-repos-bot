@@ -98,7 +98,11 @@ def fetch_github_repos(entity: str, entity_type: str = None, write_csv: bool = F
     if write_csv:
         base_dir = get_repo_root()
         output_dir = base_dir / "devdata" / "work-items-in" / "input-for-producer"
-        output_dir.mkdir(parents=True, exist_ok=True)
+        try:
+            output_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            print(f"Failed to create directory '{output_dir}': {e}")
+            return DataFrame()  # Return an empty DataFrame to indicate failure
         csv_filename = output_dir / "repos.csv"
         df.to_csv(csv_filename, index=False)
         print(
