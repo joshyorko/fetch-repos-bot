@@ -75,11 +75,17 @@ YQ_COMMAND=""
 
 # Function to detect yq type and install if needed
 detect_yq_type() {
+    # Check for yq-go first
+    if command -v yq-go &> /dev/null; then
+        if yq-go --version &> /dev/null; then
+            echo "go-bin"
+            return
+        fi
+    fi
+    # Check for yq (could be go or python)
     if command -v yq &> /dev/null; then
-        # Check if it's the Go-based yq (mikefarah/yq) by testing a unique Go-yq feature
         if echo 'test: value' | yq e '.test' - &> /dev/null; then
             echo "go"
-        # Check if it's the Python-based yq by testing jq-style syntax
         elif echo '{"test": "value"}' | yq -r .test &> /dev/null 2>&1; then
             echo "python"
         else
@@ -93,44 +99,23 @@ detect_yq_type() {
 # Function to find or install yq
 setup_yq() {
     YQ_TYPE=$(detect_yq_type)
-    
     case $YQ_TYPE in
         "go")
             YQ_COMMAND="yq"
             echo "Go-based yq (mikefarah/yq) found in PATH."
             return 0
             ;;
-        "python")
-            echo "Python-based yq found, but we need Go-based yq for this script."
-            echo "Installing Go-based yq alongside existing Python yq..."
-            install_go_yq
-            return $?
+        "go-bin")
+            YQ_COMMAND="yq-go"
+            echo "Go-based yq (mikefarah/yq) found as yq-go in PATH."
+            return 0
             ;;
-        "unknown")
-            echo "Unknown yq version found. Installing Go-based yq..."
+        "python"|"unknown"|"none")
+            echo "Go-based yq is required. Installing Go-based yq..."
             install_go_yq
-            return $?
-            ;;
-        "none")
-            echo "No yq found. Installing both Python-based and Go-based yq..."
-            install_python_yq
-            install_go_yq
-            return $?
+            return $? 
             ;;
     esac
-}
-
-# Function to install Python-based yq
-install_python_yq() {
-    echo "Installing Python-based yq..."
-    if command -v pip3 &> /dev/null; then
-        pip3 install --user yq
-    elif command -v pip &> /dev/null; then
-        pip install --user yq
-    else
-        echo "Warning: pip not found, skipping Python yq installation"
-        return 1
-    fi
 }
 
 # Function to install Go-based yq (mikefarah/yq)
