@@ -96,7 +96,7 @@ def fetch_github_repos(entity: str, entity_type: str = None, write_csv: bool = F
     df = DataFrame(repo_list)
     
     if write_csv:
-        base_dir = Path(__file__).resolve().parent.parent
+        base_dir = get_repo_root()
         output_dir = base_dir / "devdata" / "work-items-in" / "input-for-producer"
         output_dir.mkdir(parents=True, exist_ok=True)
         csv_filename = output_dir / "repos.csv"
