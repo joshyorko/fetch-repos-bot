@@ -19,7 +19,7 @@ template:
       - name: ghcr-login
     containers:
       - name: runner
-        image: ghcr.io/joshyorko/fetch-repos-bot-runner:main-da8235b # Replace with your image
+        image: ghcr.io/joshyorko/fetch-repos-bot-runner:main-22c4448 # Replace with your image
         imagePullPolicy: Always
         command: ["/home/runner/run.sh"]
         resources:
