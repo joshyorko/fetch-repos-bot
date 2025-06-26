@@ -1,5 +1,5 @@
 # Base on the official GitHub Actions Runner image
-FROM ghcr.io/actions/actions-runner:2.324.0
+FROM ghcr.io/actions/actions-runner:2.325.0
 
 # Switch to root for installations
 USER root
