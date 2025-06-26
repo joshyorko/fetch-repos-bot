@@ -42,6 +42,7 @@ def producer():
             rows = df.to_dict(orient="records")
             for row in rows:
                 repo_payload = {
+                    "org": org_name,
                     "Name": row.get("Name"),
                     "URL": row.get("URL"),
                     "Description": row.get("Description"),
@@ -80,6 +81,9 @@ def consumer():
     # Define report path before use
     report_path = output / f"report-shard-{shard_id}.json"
     
+    # Extract org name from first work item or environment variable
+    org_name = None
+    
     for item in workitems.inputs:
         try:
             payload = item.payload
@@ -87,6 +91,11 @@ def consumer():
                 print(f"Skipping item with non-dict payload: {payload}")
                 item.fail("APPLICATION", code="INVALID_PAYLOAD", message="Payload is not a dict.")
                 continue
+            
+            # Extract org name if not already set
+            if org_name is None:
+                org_name = payload.get("org") or os.getenv("ORG_NAME")
+            
             url = payload.get("URL")
             if not url:
                 print(f"Skipping item with missing URL: {payload}")
@@ -94,12 +103,12 @@ def consumer():
                 continue
             repo_name = url.split('/')[-1].replace('.git', '')
             repo_path = repos_dir / repo_name
-            print(f"[Shard {shard_id}] Cloning repository: {repo_name}")
+            print(f"[Shard {shard_id}] {org_name}/{repo_name} - cloning...")
             
             try:
                 # Clone with GitPython, showing progress (if supported)
                 Repo.clone_from(url, repo_path)
-                print(f"[Shard {shard_id}] Successfully cloned: {repo_name}")
+                print(f"[Shard {shard_id}] {org_name}/{repo_name} - ✓")
                 processed_repos.append({
                     "name": repo_name,
                     "url": url,
@@ -110,14 +119,15 @@ def consumer():
                 workitems.outputs.create({
                     "name": repo_name,
                     "url": url,
+                    "org": org_name,
                     "status": "success"
                 })
                 item.done()
             except GitCommandError as git_err:
-                error_msg = f"Git error while cloning {repo_name}: {str(git_err)}"
-                print(f"[Shard {shard_id}] {error_msg}")
+                error_msg = f"Git error while cloning {repo_name} from org {org_name}: {str(git_err)}"
+                print(f"[Shard {shard_id}] {org_name}/{repo_name} - ✗ {str(git_err)}")
                 if "could not resolve host" in str(git_err).lower():
-                    print(f"[Shard {shard_id}] Transient network error for {repo_name}. Skipping for retry.")
+                    print(f"[Shard {shard_id}] {org_name}/{repo_name} - network error, releasing for retry")
                     processed_repos.append({
                         "name": repo_name,
                         "url": url,
@@ -128,6 +138,7 @@ def consumer():
                     workitems.outputs.create({
                         "name": repo_name,
                         "url": url,
+                        "org": org_name,
                         "status": "released",
                         "error": error_msg
                     })
@@ -143,6 +154,7 @@ def consumer():
                     workitems.outputs.create({
                         "name": repo_name,
                         "url": url,
+                        "org": org_name,
                         "status": "failed",
                         "error": error_msg
                     })
@@ -156,6 +168,7 @@ def consumer():
     # Create a summary report
     report = {
         "shard_id": shard_id,
+        "org_name": org_name,
         "total_processed": len(processed_repos),
         "successful_clones": len(git_repos),
         "failed_clones": len([r for r in processed_repos if r["status"] == "failed"]),
@@ -180,3 +193,30 @@ def consumer():
     except OSError as e:
         print(f"Error removing directory {repos_dir}: {e}")
     print(f"[Shard {shard_id}] Cleanup complete")
+
+
+# create reporter tasks that report the number of work items created and processed and passed or failed.
+@task
+def reporter():
+    for item in workitems.inputs:
+        payload = item.payload
+        if not isinstance(payload, dict):
+            print(f"Skipping item with non-dict payload: {payload}")
+            item.fail("APPLICATION", code="INVALID_PAYLOAD", message="Payload is not a dict.")
+            continue
+        
+        org_name = payload.get("org")
+        if not org_name:
+            org_name = os.getenv("ORG_NAME")
+        
+        if not org_name:
+            print("Organization name is required in work item payload 'org' field or ORG_NAME environment variable.")
+            item.fail("APPLICATION", code="MISSING_ORG_NAME", message="Organization name is missing.")
+            continue
+        
+        print(f"Reporting for organization: {org_name}")
+        
+        # Here you can implement the logic to report the number of work items created and processed
+        # For example, you could log the counts or create a summary work item
+        # This is a placeholder for your reporting logic
+        item.done()
