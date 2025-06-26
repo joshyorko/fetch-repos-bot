@@ -5,7 +5,7 @@ FROM ghcr.io/actions/actions-runner:2.325.0
 USER root
 
 # Install rcc (Robocorp Command Center)
-RUN curl -o rcc https://cdn.sema4.ai/rcc/releases/latest/linux64/rcc \
+RUN curl -o rcc https://downloads.robocorp.com/rcc/releases/v18.5.0/linux64/rcc \
  && chmod a+x rcc \
  && mv rcc /usr/local/bin/
 
