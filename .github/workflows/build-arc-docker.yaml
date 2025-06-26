@@ -1,16 +1,16 @@
 name: Build and Push Fetch Repos Bot Runner Docker Image
 
 on:
-  push:
-    paths:
-      - 'robot.yaml'
-      - 'conda.yaml'
-      - 'repos/fetch-repos/Dockerfile'
-  pull_request:
-    paths:
-      - 'robot.yaml'
-      - 'conda.yaml'
-      - 'repos/fetch-repos/Dockerfile'
+  #push:
+  #  paths:
+  #    - 'robot.yaml'
+  #    - 'conda.yaml'
+  #    - 'repos/fetch-repos/Dockerfile'
+  #pull_request:
+  #  paths:
+  #    - 'robot.yaml'
+  #    - 'conda.yaml'
+  #    - 'repos/fetch-repos/Dockerfile'
   workflow_dispatch:
 
 env:
