@@ -1,4 +1,5 @@
 import requests
+from pathlib import Path
 from pandas import DataFrame
 
 # Timeout for HTTP requests (in seconds)
@@ -95,9 +96,18 @@ def fetch_github_repos(entity: str, entity_type: str = None, write_csv: bool = F
     df = DataFrame(repo_list)
     
     if write_csv:
-        csv_filename = "devdata/work-items-in/input-for-producer/repos.csv"
+        base_dir = get_repo_root()
+        output_dir = base_dir / "devdata" / "work-items-in" / "input-for-producer"
+        try:
+            output_dir.mkdir(parents=True, exist_ok=True)
+        except OSError as e:
+            print(f"Failed to create directory '{output_dir}': {e}")
+            return DataFrame()  # Return an empty DataFrame to indicate failure
+        csv_filename = output_dir / "repos.csv"
         df.to_csv(csv_filename, index=False)
-        print(f"CSV file '{csv_filename}' created successfully with {len(repo_list)} repositories.")
+        print(
+            f"CSV file '{csv_filename}' created successfully with {len(repo_list)} repositories."
+        )
     
     return df
 
