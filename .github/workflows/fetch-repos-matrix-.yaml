@@ -13,8 +13,8 @@ on:
 
 jobs:
   producer:
-    #runs-on: fetch-repos-bot-runner-k8s
-    runs-on: ubuntu-latest
+    runs-on: fetch-repos-bot-runner-k8s
+    #runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.get-matrix.outputs.matrix }}
       shard_count: ${{ steps.get-matrix.outputs.shard_count }}
