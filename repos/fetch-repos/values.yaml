@@ -27,7 +27,7 @@ template:
             cpu: "2"
             memory: "4Gi"
           limits:
-            cpu: "4"
-            memory: "8Gi"
-maxRunners: 7
+            cpu: "2"
+            memory: "4Gi"
+maxRunners: 50
 minRunners: 0
