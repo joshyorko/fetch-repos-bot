@@ -3,11 +3,11 @@
 
 tasks:
   Producer:
-    shell: python -m robocorp.tasks run tasks.py -t producer
+    shell: python -m robocorp.tasks run tasks.py -t producer -o output --max-log-files 10 --max-log-file-size 2MB
   Consumer:
-    shell: python -m robocorp.tasks run tasks.py -t consumer
+    shell: python -m robocorp.tasks run tasks.py -t consumer -o output --max-log-files 10 --max-log-file-size 2MB
   Reporter:
-    shell: python -m robocorp.tasks run tasks.py -t reporter
+    shell: python -m robocorp.tasks run tasks.py -t reporter -o output --max-log-files 10 --max-log-file-size 2MB
 
 
 
