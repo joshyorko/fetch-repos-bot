@@ -52,11 +52,13 @@ jobs:
           SHARD_COUNT=$(echo "${MATRIX}" | jq '.matrix.include | length')
           echo "shard_count=${SHARD_COUNT}" >> $GITHUB_OUTPUT
 
-      - name: Upload producer output
+      - name: Upload producer output for consumers
         uses: actions/upload-artifact@v4.6.2
         with:
           name: producer-output
-          path: output/
+          path: |
+            output/shards/
+            output/matrix-output.json
           retention-days: 1
 
   consumer:
