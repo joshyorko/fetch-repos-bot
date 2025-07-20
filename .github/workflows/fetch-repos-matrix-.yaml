@@ -168,6 +168,7 @@ jobs:
 
       - name: Create reporter environment config
         run: |
+          mkdir -p output/reporter-final
           cat > devdata/env-for-reporter.json <<EOF
           {
             "RC_WORKITEM_ADAPTER": "FileAdapter",
@@ -183,5 +184,8 @@ jobs:
         uses: actions/upload-artifact@v4.6.2
         with:
           name: reporter-output
-          path: output/reporter-final/
+          path: |
+            output/final_report_*.json
+            output/log.html
+            output/reporter-final/
           retention-days: 7
