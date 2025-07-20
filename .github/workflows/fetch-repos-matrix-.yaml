@@ -1,4 +1,4 @@
-name: SELF-HOSTED ARC Producer-Consumer Matrix Workflow
+name: ARC Producer-Consumer Matrix Workflow
 
 on:
   workflow_dispatch:
@@ -14,6 +14,7 @@ on:
 jobs:
   producer:
     runs-on: fetch-repos-bot-runner-k8s
+    #runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.get-matrix.outputs.matrix }}
       shard_count: ${{ steps.get-matrix.outputs.shard_count }}
