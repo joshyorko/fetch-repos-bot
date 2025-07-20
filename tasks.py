@@ -9,11 +9,14 @@ from scripts.fetch_repos import fetch_github_repos
 import json
 import time
 
+# A shared context to pass data from fixtures to tasks
+task_context = {}
+
 
 @setup(scope="session")
 def configure_environment(tasks):
     """Configure environment settings for all tasks."""
-    print(f"Setting up environment for {len(tasks)} task(s)")
+    print(f"Setting up environment for Fetch REPOS BOT {len(tasks)} task(s)")
     
     # Ensure output directory exists
     output_dir = get_output_dir() or Path("output")
@@ -21,6 +24,38 @@ def configure_environment(tasks):
     
     # Set up any global configuration
     print(f"Output directory: {output_dir}")
+
+
+@setup
+def manage_consumer_directory(task):
+    """Set up and tear down the temporary directory for the consumer task."""
+    if task.name == "consumer":
+        output = get_output_dir() or Path("output")
+        shard_id = os.getenv("SHARD_ID", "0")
+        repos_dir = output / f"repos-shard-{shard_id}"
+
+        # Clean up before task execution for a fresh start
+        if repos_dir.exists():
+            shutil.rmtree(repos_dir)
+        repos_dir.mkdir(parents=True, exist_ok=True)
+
+        task_context["repos_dir"] = repos_dir
+        
+        try:
+            yield  # Task executes here
+        finally:
+            # Clean up after task execution
+            print(f"[Shard {shard_id}] Cleaning up cloned repositories directory...")
+            if repos_dir.exists():
+                try:
+                    shutil.rmtree(repos_dir)
+                    print(f"[Shard {shard_id}] Cleanup complete.")
+                except OSError as e:
+                    print(f"Warning: Error removing directory {repos_dir}: {e}")
+            # Clear context
+            task_context.pop("repos_dir", None)
+    else:
+        yield # For other tasks, do nothing
 
 
 @setup
@@ -144,22 +179,15 @@ def consumer():
     """Clones all the repositories from the input Work Items and zips them and saves them to the output directory."""
     output = get_output_dir() or Path("output")
     
+    # Get the managed directory from the fixture via context
+    repos_dir = task_context.get("repos_dir")
+    if not repos_dir:
+        raise RuntimeError("Consumer directory not set up by fixture.")
+
     # Get shard ID for unique naming
     shard_id = os.getenv("SHARD_ID", "0")
     filename = f"repos-shard-{shard_id}.zip"
-    repos_dir = output / f"repos-shard-{shard_id}"
     output_path = output / filename
-
-    # Create output directories if they don't exist (idempotent)
-    repos_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Clean up any existing repos directory to ensure fresh start
-    if repos_dir.exists():
-        try:
-            shutil.rmtree(repos_dir)
-            repos_dir.mkdir(parents=True, exist_ok=True)
-        except OSError as e:
-            print(f"Warning: Could not clean existing directory {repos_dir}: {e}")
     
     processed_repos = []
     git_repos = []  # Track successfully cloned repo paths
@@ -298,7 +326,7 @@ def consumer():
         "released_items": len([r for r in processed_repos if r["status"] == "released"]),
         "already_existing": len([r for r in processed_repos if r["status"] == "already_exists"]),
         "repositories": processed_repos,
-        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S")
+        "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime())
     }
     
     try:
@@ -324,14 +352,7 @@ def consumer():
     else:
         print(f"[Shard {shard_id}] No repositories to zip")
 
-    # Clean up the cloned repos directory (but not the zip file)
-    print(f"[Shard {shard_id}] Cleaning up cloned repositories directory...")
-    try:
-        if repos_dir.exists():
-            shutil.rmtree(repos_dir)
-            print(f"[Shard {shard_id}] Cleanup complete")
-    except OSError as e:
-        print(f"Warning: Error removing directory {repos_dir}: {e}")
+    # Cleanup is now handled by the manage_consumer_directory fixture.
 
 
 # create reporter tasks that report the number of work items created and processed and passed or failed.
@@ -414,12 +435,12 @@ def reporter():
     
     # Save detailed report
     output_dir = get_output_dir() or Path("output")
-    report_file = output_dir / f"final_report_{int(time.time())}.json"
+    report_file = output_dir / f"final_report_{time.strftime('%Y%m%d-%H%M%S', time.gmtime())}.json"
     
     try:
         with open(report_file, 'w') as f:
             json.dump({
-                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "timestamp": time.strftime("%Y-%m-%d %H:%M:%S UTC", time.gmtime()),
                 "summary": summary_stats,
                 "success_rate_percent": success_rate
             }, f, indent=4)
