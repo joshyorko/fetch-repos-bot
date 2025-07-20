@@ -121,3 +121,77 @@ jobs:
           name: shard-output-${{ matrix.shard_id }}
           path: output
           retention-days: 1
+
+  reporter:
+    runs-on: fetch-repos-bot-runner-k8s
+    needs: [producer, consumer]
+    if: needs.producer.outputs.shard_count > 0
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          clean: true
+
+      - name: Ensure RCC is installed
+        run: |
+          if ! command -v rcc &> /dev/null; then
+            echo "RCC not found. Downloading..."
+            curl -o rcc https://downloads.robocorp.com/rcc/releases/latest/linux64/rcc
+            chmod +x rcc
+            sudo mv rcc /usr/local/bin/
+          else
+            echo "RCC is already installed."
+          fi
+
+      - name: Disable RCC telemetry
+        run: |
+          echo "Disabling RCC telemetry..."
+          rcc config identity -t
+
+      - name: Download all shard outputs
+        uses: actions/download-artifact@v4.3.0
+        with:
+          pattern: shard-output-*
+          path: shard-outputs/
+          merge-multiple: true
+
+      - name: Combine consumer outputs for reporter
+        run: |
+          mkdir -p output/reporter-input
+          COMBINED_FILE="output/reporter-input/work-items.json"
+          echo "[" > "$COMBINED_FILE"
+          
+          # Combine all consumer output files
+          FIRST_FILE=true
+          for CONSUMER_FILE in shard-outputs/consumer-to-reporter/work-items-*.json; do
+            [ -e "$CONSUMER_FILE" ] || continue
+            if [ "$FIRST_FILE" = true ]; then
+              FIRST_FILE=false
+            else
+              echo "," >> "$COMBINED_FILE"
+            fi
+            # Extract the payload from each consumer file and add it to the combined file
+            cat "$CONSUMER_FILE" | jq -r '.[]' >> "$COMBINED_FILE"
+          done
+          
+          echo "]" >> "$COMBINED_FILE"
+
+      - name: Create reporter environment config
+        run: |
+          cat > devdata/env-for-reporter.json <<EOF
+          {
+            "RC_WORKITEM_ADAPTER": "FileAdapter",
+            "RC_WORKITEM_INPUT_PATH": "output/reporter-input/work-items.json",
+            "RC_WORKITEM_OUTPUT_PATH": "output/reporter-final/work-items.json"
+          }
+          EOF
+
+      - name: Run RCC Reporter
+        run: rcc run -t reporter -e devdata/env-for-reporter.json
+
+      - name: Upload reporter output
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: reporter-output
+          path: output/reporter-final/
+          retention-days: 7
