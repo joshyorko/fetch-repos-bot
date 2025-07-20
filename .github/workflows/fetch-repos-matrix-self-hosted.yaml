@@ -117,11 +117,14 @@ jobs:
           SHARD_ID: ${{ matrix.shard_id }}
           ORG_NAME: ${{ inputs.org_name }}
 
-      - name: Upload shard output
+      - name: Upload shard output for reporter
         uses: actions/upload-artifact@v4.6.2
         with:
           name: shard-output-${{ matrix.shard_id }}
-          path: output
+          path: |
+            output/consumer-to-reporter/work-items-${{ matrix.shard_id }}.json
+            output/repos-shard-${{ matrix.shard_id }}.zip
+            output/report-shard-${{ matrix.shard_id }}.json
           retention-days: 1
 
   reporter:
