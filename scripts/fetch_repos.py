@@ -5,6 +5,20 @@ from pandas import DataFrame
 # Timeout for HTTP requests (in seconds)
 REQUEST_TIMEOUT = 10
 
+def get_repo_root() -> Path:
+    """
+    Find the root directory of the repository by looking for robot.yaml.
+    
+    Returns:
+        Path: The root directory of the repository
+    """
+    current = Path(__file__).resolve()
+    for parent in [current] + list(current.parents):
+        if (parent / 'robot.yaml').exists():
+            return parent
+    # Fallback to current file's parent directory
+    return Path(__file__).parent.parent
+
 def fetch_github_repos(entity: str, entity_type: str = None, write_csv: bool = False) -> DataFrame:
     """
     Fetch public repositories from a GitHub organization or user.
