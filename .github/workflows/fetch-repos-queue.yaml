@@ -1,0 +1,171 @@
+name: ARC Producer-Consumer Queue Workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      org_name:
+        description: Organization name to fetch repositories from
+        default: joshyorko
+      workers:
+        description: Parallel workers to spawn
+        default: '4'
+        type: string
+      max_items_per_worker:
+        description: Optional cap per worker (0 = unlimited)
+        default: '0'
+        type: string
+      max_duration_sec:
+        description: Optional time budget per worker (0 = unlimited)
+        default: '0'
+        type: string
+      shared_queue_dir:
+        description: Shared directory path mounted on all ARC runners
+        default: '/mnt/arc-shared/queue'
+        type: string
+
+jobs:
+  producer:
+    runs-on: fetch-repos-bot-runner-k8s
+    outputs:
+      worker_matrix: ${{ steps.mk-matrix.outputs.matrix }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          clean: true
+
+      - name: Disable RCC telemetry
+        run: rcc config identity -t
+
+      - name: Generate input work item for producer
+        run: |
+          mkdir -p devdata/work-items-in/input-for-producer
+          echo '[{"payload": {"org": "${{ inputs.org_name }}"}}]' > devdata/work-items-in/input-for-producer/work-items.json
+
+      - name: Run RCC Producer
+        run: rcc run -t producer -e devdata/env-for-producer.json
+        env:
+          ORG_NAME: ${{ inputs.org_name }}
+
+      - name: Split producer output into queue
+        run: python3 scripts/split_workitems_to_queue.py
+        env:
+          QUEUE_BASE: ${{ inputs.shared_queue_dir }}
+
+      - name: Make worker matrix
+        id: mk-matrix
+        run: |
+          N=${{ inputs.workers }}
+          arr=$(python3 - <<'PY'
+import json, os
+N=int(os.environ['N'])
+print(json.dumps({"matrix":{"include":[{"worker": i} for i in range(N)]}}))
+PY
+          )
+          echo "$arr" | tee output/worker-matrix.json
+          echo "matrix=$arr" >> $GITHUB_OUTPUT
+
+      # Note: queue lives on a shared mount, no artifact uploading needed
+
+  consumer:
+    runs-on: fetch-repos-bot-runner-k8s
+    needs: producer
+    strategy:
+      matrix: ${{ fromJSON(needs.producer.outputs.worker_matrix).matrix }}
+      max-parallel: ${{ fromJSON(inputs.workers) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          clean: true
+
+      - name: Ensure RCC is installed
+        run: |
+          if ! command -v rcc &> /dev/null; then
+            curl -o rcc https://downloads.robocorp.com/rcc/releases/latest/linux64/rcc
+            chmod +x rcc
+            sudo mv rcc /usr/local/bin/
+          fi
+
+      - name: Disable RCC telemetry
+        run: rcc config identity -t
+
+      - name: Run consumer worker loop
+        run: |
+          python3 scripts/run_consumer_worker.py
+        env:
+          WORKER_ID: ${{ matrix.worker }}
+          ORG_NAME: ${{ inputs.org_name }}
+          MAX_ITEMS_PER_WORKER: ${{ inputs.max_items_per_worker }}
+          MAX_DURATION_SEC: ${{ inputs.max_duration_sec }}
+          QUEUE_BASE: ${{ inputs.shared_queue_dir }}
+
+      - name: Upload worker outputs
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: worker-output-${{ matrix.worker }}
+          path: |
+            output/consumer-to-reporter/*.json
+            output/repos-shard-*.zip
+            output/report-shard-*.json
+          retention-days: 1
+
+  reporter:
+    runs-on: fetch-repos-bot-runner-k8s
+    needs: consumer
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          clean: true
+
+      - name: Ensure RCC is installed
+        run: |
+          if ! command -v rcc &> /dev/null; then
+            curl -o rcc https://downloads.robocorp.com/rcc/releases/latest/linux64/rcc
+            chmod +x rcc
+            sudo mv rcc /usr/local/bin/
+          fi
+
+      - name: Disable RCC telemetry
+        run: rcc config identity -t
+
+      - name: Download all worker outputs
+        uses: actions/download-artifact@v4.3.0
+        with:
+          pattern: worker-output-*
+          path: worker-outputs/
+          merge-multiple: true
+
+      - name: Combine consumer outputs for reporter
+        run: |
+          mkdir -p output/reporter-input
+          if ls worker-outputs/consumer-to-reporter/*.json 1> /dev/null 2>&1; then
+            jq -s 'add' worker-outputs/consumer-to-reporter/*.json > output/reporter-input/work-items.json
+          else
+            echo '[]' > output/reporter-input/work-items.json
+          fi
+
+      - name: Create reporter environment config
+        run: |
+          mkdir -p output/reporter-final
+          cat > devdata/env-for-reporter.json <<EOF
+          {
+            "RC_WORKITEM_ADAPTER": "FileAdapter",
+            "RC_WORKITEM_INPUT_PATH": "output/reporter-input/work-items.json",
+            "RC_WORKITEM_OUTPUT_PATH": "output/reporter-final/work-items.json"
+          }
+          EOF
+
+      - name: Run RCC Reporter
+        run: rcc run -t reporter -e devdata/env-for-reporter.json
+
+      - name: Upload reporter output
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: reporter-output
+          path: |
+            output/final_report_*.json
+            output/log.html
+            output/reporter-final/
+          retention-days: 7
