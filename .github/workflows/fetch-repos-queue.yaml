@@ -55,15 +55,22 @@ jobs:
       - name: Make worker matrix
         id: mk-matrix
         run: |
-          N=${{ inputs.workers }}
-          arr=$(python3 - <<'PY'
-import json, os
-N=int(os.environ['N'])
-print(json.dumps({"matrix":{"include":[{"worker": i} for i in range(N)]}}))
-PY
-          )
-          echo "$arr" | tee output/worker-matrix.json
-          echo "matrix=$arr" >> $GITHUB_OUTPUT
+          python3 - <<'PY'
+          import json, os
+          N = int(os.environ.get('WORKERS', 4))
+          matrix = {"matrix": {"include": [{"worker": i} for i in range(N)]}}
+          with open("output/worker-matrix.json", "w") as f:
+              json.dump(matrix, f)
+          print(f"matrix={json.dumps(matrix)}")
+          PY
+        env:
+          WORKERS: ${{ inputs.workers }}
+        shell: bash
+
+      # Set output for next jobs
+      - name: Set matrix output
+        run: |
+          echo "matrix=$(cat output/worker-matrix.json)" >> $GITHUB_OUTPUT
 
       # Note: queue lives on a shared mount, no artifact uploading needed
 
