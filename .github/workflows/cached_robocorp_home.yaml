@@ -1,4 +1,4 @@
-name: ARC Producer-Consumer Matrix Workflow
+name: Cached ARC Producer-Consumer Matrix Workflow
 
 on:
   workflow_dispatch:
@@ -30,14 +30,6 @@ jobs:
         with:
           clean: true
 
-      # Optional: trust a private CA for your rccremote (skip if using a public CA)
-      - name: Install private CA (optional)
-        if: ${{ secrets.RCCREMOTE_CA_PEM != '' }}
-        env:
-          RCCREMOTE_CA_PEM: ${{ secrets.RCCREMOTE_CA_PEM }}
-        run: |
-          echo "$RCCREMOTE_CA_PEM" | sudo tee /usr/local/share/ca-certificates/rccremote.crt >/dev/null
-          sudo update-ca-certificates
 
       - name: Install RCC
         run: |
@@ -103,13 +95,6 @@ jobs:
         with:
           clean: true
 
-      - name: Install private CA (optional)
-        if: ${{ secrets.RCCREMOTE_CA_PEM != '' }}
-        env:
-          RCCREMOTE_CA_PEM: ${{ secrets.RCCREMOTE_CA_PEM }}
-        run: |
-          echo "$RCCREMOTE_CA_PEM" | sudo tee /usr/local/share/ca-certificates/rccremote.crt >/dev/null
-          sudo update-ca-certificates
 
       - name: Install RCC
         run: |
@@ -177,13 +162,6 @@ jobs:
         with:
           clean: true
 
-      - name: Install private CA (optional)
-        if: ${{ secrets.RCCREMOTE_CA_PEM != '' }}
-        env:
-          RCCREMOTE_CA_PEM: ${{ secrets.RCCREMOTE_CA_PEM }}
-        run: |
-          echo "$RCCREMOTE_CA_PEM" | sudo tee /usr/local/share/ca-certificates/rccremote.crt >/dev/null
-          sudo update-ca-certificates
 
       - name: Install RCC
         run: |
