@@ -31,7 +31,7 @@ jobs:
 
       - name: Install RCC
         run: |
-          curl -sSL https://downloads.robocorp.com/rcc/releases/v17.28.4/linux64/rcc -o rcc
+          curl -sSL https://downloads.robocorp.com/rcc/releases/v18.5/linux64/rcc -o rcc
           chmod +x rcc
           sudo mv rcc /usr/local/bin/rcc
           rcc version
@@ -40,9 +40,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.ROBOCORP_HOME }}
-          key: rcc-home-${{ runner.os }}-rccv17.28.4-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
+          key: rcc-home-${{ runner.os }}-rccv18.5-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
           restore-keys: |
-            rcc-home-${{ runner.os }}-rccv17.28.4-
+            rcc-home-${{ runner.os }}-rccv18.5-
             rcc-home-${{ runner.os }}-
 
       - name: Disable RCC telemetry
@@ -104,7 +104,7 @@ jobs:
 
       - name: Install RCC
         run: |
-          curl -sSL https://downloads.robocorp.com/rcc/releases/v17.28.4/linux64/rcc -o rcc
+          curl -sSL https://downloads.robocorp.com/rcc/releases/v18.5/linux64/rcc -o rcc
           chmod +x rcc
           sudo mv rcc /usr/local/bin/rcc
           rcc version
@@ -113,9 +113,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.ROBOCORP_HOME }}
-          key: rcc-home-${{ runner.os }}-rccv17.28.4-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
+          key: rcc-home-${{ runner.os }}-rccv18.5-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
           restore-keys: |
-            rcc-home-${{ runner.os }}-rccv17.28.4-
+            rcc-home-${{ runner.os }}-rccv18.5-
             rcc-home-${{ runner.os }}-
 
       - name: Disable RCC telemetry
@@ -170,7 +170,7 @@ jobs:
 
       - name: Install RCC
         run: |
-          curl -sSL https://downloads.robocorp.com/rcc/releases/v17.28.4/linux64/rcc -o rcc
+          curl -sSL https://downloads.robocorp.com/rcc/releases/v18.5/linux64/rcc -o rcc
           chmod +x rcc
           sudo mv rcc /usr/local/bin/rcc
           rcc version
@@ -179,9 +179,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.ROBOCORP_HOME }}
-          key: rcc-home-${{ runner.os }}-rccv17.28.4-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
+          key: rcc-home-${{ runner.os }}-rccv18.5-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
           restore-keys: |
-            rcc-home-${{ runner.os }}-rccv17.28.4-
+            rcc-home-${{ runner.os }}-rccv18.5-
             rcc-home-${{ runner.os }}-
 
       - name: Disable RCC telemetry
