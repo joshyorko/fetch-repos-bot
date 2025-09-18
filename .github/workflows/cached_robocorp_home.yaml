@@ -27,13 +27,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          clean: true
 
 
       - name: Install RCC
         run: |
-          curl -sSL https://downloads.robocorp.com/rcc/releases/latest/linux64/rcc -o rcc
+          curl -sSL https://downloads.robocorp.com/rcc/releases/v17.28.4/linux64/rcc -o rcc
           chmod +x rcc
           sudo mv rcc /usr/local/bin/rcc
           rcc version
@@ -42,8 +40,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.ROBOCORP_HOME }}
-          key: rcc-home-${{ runner.os }}-${{ hashFiles('**/robot.yaml', '**/conda.yaml') }}
+          key: rcc-home-${{ runner.os }}-rccv17.28.4-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
           restore-keys: |
+            rcc-home-${{ runner.os }}-rccv17.28.4-
             rcc-home-${{ runner.os }}-
 
       - name: Disable RCC telemetry
@@ -59,10 +58,19 @@ jobs:
         env:
           ORG_NAME: ${{ inputs.org_name }}
 
-      - name: Generate shards and matrix
+      - name: Warm Holotree
         run: |
-          python3 --version || sudo apt-get update && sudo apt-get install -y python3
-          python3 scripts/generate_shards_and_matrix.py ${{ inputs.max_workers }}
+          rcc holotree variables -r robot.yaml -s producer || true
+          rcc holotree variables -r robot.yaml -s consumer || true
+          rcc holotree variables -r robot.yaml -s reporter || true
+          rcc holotree list || true
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Generate shards and matrix
+        run: python3 scripts/generate_shards_and_matrix.py ${{ inputs.max_workers }}
 
       - name: Get matrix configuration
         id: get-matrix
@@ -92,13 +100,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          clean: true
 
 
       - name: Install RCC
         run: |
-          curl -sSL https://downloads.robocorp.com/rcc/releases/latest/linux64/rcc -o rcc
+          curl -sSL https://downloads.robocorp.com/rcc/releases/v17.28.4/linux64/rcc -o rcc
           chmod +x rcc
           sudo mv rcc /usr/local/bin/rcc
           rcc version
@@ -107,8 +113,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.ROBOCORP_HOME }}
-          key: rcc-home-${{ runner.os }}-${{ hashFiles('**/robot.yaml', '**/conda.yaml') }}
+          key: rcc-home-${{ runner.os }}-rccv17.28.4-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
           restore-keys: |
+            rcc-home-${{ runner.os }}-rccv17.28.4-
             rcc-home-${{ runner.os }}-
 
       - name: Disable RCC telemetry
@@ -159,13 +166,11 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          clean: true
 
 
       - name: Install RCC
         run: |
-          curl -sSL https://downloads.robocorp.com/rcc/releases/latest/linux64/rcc -o rcc
+          curl -sSL https://downloads.robocorp.com/rcc/releases/v17.28.4/linux64/rcc -o rcc
           chmod +x rcc
           sudo mv rcc /usr/local/bin/rcc
           rcc version
@@ -174,8 +179,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.ROBOCORP_HOME }}
-          key: rcc-home-${{ runner.os }}-${{ hashFiles('**/robot.yaml', '**/conda.yaml') }}
+          key: rcc-home-${{ runner.os }}-rccv17.28.4-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
           restore-keys: |
+            rcc-home-${{ runner.os }}-rccv17.28.4-
             rcc-home-${{ runner.os }}-
 
       - name: Disable RCC telemetry
