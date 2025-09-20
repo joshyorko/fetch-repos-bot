@@ -15,6 +15,3 @@ devdata/work-items-out/
 testrun/*
 .~lock*
 *.pkl
-.venv/
-
-
