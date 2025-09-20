@@ -13,19 +13,6 @@ import time
 task_context = {}
 
 
-@setup(scope="session")
-def configure_environment(tasks):
-    """Configure environment settings for all tasks."""
-    print(f"Setting up environment for Fetch REPOS BOT {len(tasks)} task(s)")
-    
-    # Ensure output directory exists
-    output_dir = get_output_dir() or Path("output")
-    output_dir.mkdir(parents=True, exist_ok=True)
-    
-    # Set up any global configuration
-    print(f"Output directory: {output_dir}")
-
-
 @setup
 def manage_consumer_directory(task):
     """Set up and tear down the temporary directory for the consumer task."""
