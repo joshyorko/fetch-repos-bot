@@ -10,29 +10,33 @@ if [ "$BUILD_FLAG" == "--dry-run" ]; then
     DRY_RUN=true
 fi
 
+# Resolve repository base directory relative to this script location
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPOS_DIR="$SCRIPT_DIR/repos"
+
 # Function to select values file using fuzzy finder or menu
 select_values_file() {
     local repo_dir="$1"
     local values_files=()
     
     # Find all values*.yaml files in the repo directory
-    if [ -d "repos/$repo_dir" ]; then
+    if [ -d "$REPOS_DIR/$repo_dir" ]; then
         while IFS= read -r -d '' file; do
             values_files+=("$(basename "$file")")
-        done < <(find "repos/$repo_dir" -name "values*.yaml" -print0 2>/dev/null)
+        done < <(find "$REPOS_DIR/$repo_dir" -name "values*.yaml" -print0 2>/dev/null)
     fi
     
     if [ ${#values_files[@]} -eq 0 ]; then
-        echo "Error: No values*.yaml files found in repos/$repo_dir" >&2
+        echo "Error: No values*.yaml files found in $REPOS_DIR/$repo_dir" >&2
         exit 1
     elif [ ${#values_files[@]} -eq 1 ]; then
         # Only one file found, use it automatically
-        echo "repos/$repo_dir/${values_files[0]}"
+        echo "$REPOS_DIR/$repo_dir/${values_files[0]}"
         return 0
     fi
     
     # Multiple files found, let user choose
-    echo "Multiple values files found in repos/$repo_dir:" >&2
+    echo "Multiple values files found in $REPOS_DIR/$repo_dir:" >&2
     
     # Try to use fzf for fuzzy finding
     if command -v fzf &> /dev/null; then
@@ -40,7 +44,7 @@ select_values_file() {
         local selected_file
         selected_file=$(printf '%s\n' "${values_files[@]}" | fzf --prompt="Select values file: " --height=10 --reverse)
         if [ -n "$selected_file" ]; then
-            echo "repos/$repo_dir/$selected_file"
+            echo "$REPOS_DIR/$repo_dir/$selected_file"
             return 0
         else
             echo "No file selected. Exiting." >&2
@@ -57,7 +61,7 @@ select_values_file() {
             echo -n "Select a file (1-${#values_files[@]}): " >&2
             read -r choice
             if [[ "$choice" =~ ^[0-9]+$ ]] && [ "$choice" -ge 1 ] && [ "$choice" -le ${#values_files[@]} ]; then
-                echo "repos/$repo_dir/${values_files[$((choice-1))]}"
+                echo "$REPOS_DIR/$repo_dir/${values_files[$((choice-1))]}"
                 return 0
             else
                 echo "Invalid selection. Please enter a number between 1 and ${#values_files[@]}." >&2
@@ -69,7 +73,7 @@ select_values_file() {
 # Select the values file to use
 VALUES_FILE=$(select_values_file "$REPO_DIR")
 echo "Using values file: $VALUES_FILE"
-DOCKERFILE="repos/$REPO_DIR/Dockerfile"
+DOCKERFILE="$REPOS_DIR/$REPO_DIR/Dockerfile"
 
 YQ_COMMAND=""
 
@@ -156,10 +160,10 @@ if [[ "$BUILD_FLAG" == "build" ]]; then
   REPO_NAME=${OWNER_REPO##*/}
   IMAGE="ghcr.io/${ORG}/${REPO_NAME}-runner:latest"
   if [ -f "$DOCKERFILE" ]; then
-    docker build -t "$IMAGE" "repos/$REPO_DIR"
+        docker build -t "$IMAGE" "$REPOS_DIR/$REPO_DIR"
     docker push "$IMAGE"
   else
-    echo "No Dockerfile found in repos/$REPO_DIR, skipping build."
+        echo "No Dockerfile found in $REPOS_DIR/$REPO_DIR, skipping build."
   fi
 fi
 
