@@ -3,11 +3,9 @@
 
 tasks:
   Producer:
-    shell: python -m robocorp.tasks run tasks.py -t producer 
+    shell: python -m robocorp.tasks run tasks.py -t producer
   Consumer:
     shell: python -m robocorp.tasks run tasks.py -t consumer
-  Reporter:
-    shell: python -m robocorp.tasks run tasks.py -t reporter #-o output --max-log-files 10 --max-log-file-size 2MB
 
 environmentConfigs:
   - environment_windows_amd64_freeze.yaml
