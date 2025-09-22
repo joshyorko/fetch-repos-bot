@@ -64,17 +64,17 @@ jobs:
           mkdir -p devdata/work-items-in/input-for-producer
           echo '[{"payload": {"org": "${{ inputs.org_name }}"}}]' > devdata/work-items-in/input-for-producer/work-items.json
 
-      - name: Run RCC Producer
-        run: rcc run -t producer -e devdata/env-for-producer.json
-        env:
-          ORG_NAME: ${{ inputs.org_name }}
-
       - name: Warm Holotree
         run: |
           rcc holotree variables -r robot.yaml -s producer || true
           rcc holotree variables -r robot.yaml -s consumer || true
           rcc holotree variables -r robot.yaml -s reporter || true
           rcc holotree list || true
+
+      - name: Run RCC Producer
+        run: rcc run -t producer -e devdata/env-for-producer.json
+        env:
+          ORG_NAME: ${{ inputs.org_name }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
