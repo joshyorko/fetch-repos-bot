@@ -312,3 +312,15 @@ jobs:
             output/producer-to-consumer/
             output/reporter-logs.html
           retention-days: 7
+
+      - name: Dashboard Generation Summary
+        if: always()
+        run: |
+          echo "# 📊 Consolidated Dashboard Summary" >> $GITHUB_STEP_SUMMARY
+          if [ -f "output/consolidated_dashboard_jinja2.html" ]; then
+            echo "- Generated: output/consolidated_dashboard_jinja2.html" >> $GITHUB_STEP_SUMMARY
+            echo "- Data: output/consolidated_data.json" >> $GITHUB_STEP_SUMMARY
+            echo "- CSV: output/csv_exports/" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Dashboard not generated" >> $GITHUB_STEP_SUMMARY
+          fi

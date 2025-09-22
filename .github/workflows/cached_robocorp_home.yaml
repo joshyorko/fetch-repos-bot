@@ -416,3 +416,24 @@ jobs:
             output/consumer-to-reporter/
             output/reporter-logs.html
           retention-days: 7
+
+      - name: Dashboard Generation Summary
+        if: always()
+        run: |
+          echo "# 📊 Consolidated Dashboard Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f "output/consolidated_dashboard_jinja2.html" ]; then
+            echo "## ✅ Dashboard Generation Successful" >> $GITHUB_STEP_SUMMARY
+            echo "The consolidated dashboard has been generated successfully using Jinja2 templating." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 📁 Generated Artifacts" >> $GITHUB_STEP_SUMMARY
+            echo "- output/consolidated_dashboard_jinja2.html" >> $GITHUB_STEP_SUMMARY
+            echo "- output/consolidated_data.json" >> $GITHUB_STEP_SUMMARY
+            echo "- output/csv_exports/" >> $GITHUB_STEP_SUMMARY
+            echo "- output/consumer-to-reporter/" >> $GITHUB_STEP_SUMMARY
+            echo "- output/reporter-logs.html" >> $GITHUB_STEP_SUMMARY
+            echo "- Artifact: consolidated-dashboard-output" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ Dashboard Generation Failed" >> $GITHUB_STEP_SUMMARY
+            echo "The dashboard generation encountered an error. Check job logs for details." >> $GITHUB_STEP_SUMMARY
+          fi

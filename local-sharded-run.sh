@@ -293,19 +293,3 @@ else
     echo "❌ Dashboard generation failed"
     exit 1
 fi
-
-# Step 8: Archive Outputs
-echo ""
-echo "📦 Step 8: Archiving Outputs"
-echo "============================"
-rcc run -t "ArchiveOutputs"
-
-echo ""
-echo "🎉 Local Sharded Workflow Completed Successfully!"
-echo "================================================="
-echo "📁 Generated files:"
-ls -lh output/consolidated_dashboard_jinja2.html output/consolidated_data.json output/reporter-logs.html 2>/dev/null || echo "Some files not found"
-echo ""
-echo "🌐 Open output/consolidated_dashboard_jinja2.html in your browser to view the dashboard"
-echo "📊 Individual shard logs available in output/consumer-to-reporter/consumer-shard-*-logs.html"
-echo "📋 Reporter logs available in output/reporter-logs.html"
