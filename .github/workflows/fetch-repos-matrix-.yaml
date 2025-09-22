@@ -40,6 +40,13 @@ jobs:
         env:
           ORG_NAME: ${{ inputs.org_name }}
 
+      - name: Capture Producer Logs
+        run: |
+          mkdir -p output/producer-to-consumer
+          if [ -f "output/log.html" ]; then
+            mv output/log.html output/producer-to-consumer/producer-logs.html
+          fi
+
       - name: Generate shards and matrix
         run: |
           python3 scripts/generate_shards_and_matrix.py ${{ inputs.max_workers }}
@@ -57,9 +64,7 @@ jobs:
         uses: actions/upload-artifact@v4.6.2
         with:
           name: producer-output
-          path: |
-            output/shards/
-            output/matrix-output.json
+          path: output/
           retention-days: 1
 
   consumer:
@@ -97,6 +102,11 @@ jobs:
           name: producer-output
           path: output/
 
+      - name: List output directory contents (debug)
+        run: |
+          echo "Listing output directory:"
+          ls -lR output
+
       - name: Setup work items for this shard
         run: |
           python3 scripts/shard_loader.py
@@ -118,20 +128,29 @@ jobs:
           SHARD_ID: ${{ matrix.shard_id }}
           ORG_NAME: ${{ inputs.org_name }}
 
+      - name: Capture Consumer Shard Logs
+        run: |
+          echo "🔍 Looking for consumer log files..."
+          mkdir -p output/consumer-to-reporter
+          if [ -f "output/log.html" ]; then
+            echo "✅ Found output/log.html, moving to shard-specific name"
+            mv output/log.html output/consumer-to-reporter/consumer-shard-${{ matrix.shard_id }}-logs.html
+          else
+            echo "⚠️ No output/log.html found for shard ${{ matrix.shard_id }}"
+            echo "<html><body><h1>No log generated for shard ${{ matrix.shard_id }}</h1></body></html>" > output/consumer-to-reporter/consumer-shard-${{ matrix.shard_id }}-logs.html
+          fi
+
       - name: Upload shard output for reporter
         uses: actions/upload-artifact@v4.6.2
         with:
           name: shard-output-${{ matrix.shard_id }}
-          path: |
-            output/consumer-to-reporter/work-items-${{ matrix.shard_id }}.json
-            output/repos-shard-${{ matrix.shard_id }}.zip
-            output/report-shard-${{ matrix.shard_id }}.json
+          path: output/
           retention-days: 1
 
   reporter:
     runs-on: fetch-repos-bot-runner-k8s
     needs: [producer, consumer]
-    if: needs.producer.outputs.shard_count > 0
+    if: always()
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -161,10 +180,17 @@ jobs:
           path: shard-outputs/
           merge-multiple: true
 
+      - name: List downloaded files (for debugging)
+        run: ls -lR shard-outputs || true
+
       - name: Combine consumer outputs for reporter
         run: |
           mkdir -p output/reporter-input
-          jq -s 'add' shard-outputs/consumer-to-reporter/work-items-*.json > output/reporter-input/work-items.json
+          if ls shard-outputs/consumer-to-reporter/work-items-*.json >/dev/null 2>&1; then
+            jq -s 'add' shard-outputs/consumer-to-reporter/work-items-*.json > output/reporter-input/work-items.json
+          else
+            echo '[]' > output/reporter-input/work-items.json
+          fi
 
       - name: Create reporter environment config
         run: |
@@ -180,15 +206,31 @@ jobs:
       - name: Run RCC Reporter
         run: rcc run -t reporter -e devdata/env-for-reporter.json
 
+      - name: Capture Reporter Logs
+        run: |
+          if [ -f "output/log.html" ]; then
+            mv output/log.html output/reporter-logs.html
+          fi
+
       - name: Upload reporter output
         uses: actions/upload-artifact@v4.6.2
         with:
           name: reporter-output
           path: |
             output/final_report_*.json
-            output/log.html
+            output/reporter-logs.html
+            output/consumer-to-reporter/
             output/reporter-final/
           retention-days: 7
+
+      - name: Workflow Summary
+        if: always()
+        run: |
+          echo "# 🧩 Fetch Repos Bot Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Org Name | ${{ inputs.org_name }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Max Workers | ${{ inputs.max_workers }} |" >> $GITHUB_STEP_SUMMARY
+          SHARD_COUNT="${{ needs.producer.outputs.shard_count }}"; if [ -z "$SHARD_COUNT" ] || [ "$SHARD_COUNT" = "null" ]; then SHARD_COUNT="0"; fi
+          echo "| Shards Created | $SHARD_COUNT |" >> $GITHUB_STEP_SUMMARY
 
   consolidated-dashboard:
     runs-on: fetch-repos-bot-runner-k8s
@@ -241,6 +283,16 @@ jobs:
           # Reporter logs
           if [ -f "all-artifacts/reporter-output/log.html" ]; then
             cp all-artifacts/reporter-output/log.html output/reporter-logs.html || true
+          fi
+
+          # Copy consumer shard logs if any
+          for p in all-artifacts/shard-output-*/consumer-to-reporter/consumer-shard-*-logs.html; do
+            if [ -f "$p" ]; then
+              cp "$p" output/consumer-to-reporter/ || true
+            fi
+          done
+          if ! ls output/consumer-to-reporter/consumer-shard-*-logs.html >/dev/null 2>&1; then
+            echo "<html><body><h1>No Consumer Logs Available</h1></body></html>" > output/consumer-to-reporter/consumer-logs.html
           fi
 
       - name: Generate Consolidated Dashboard (Jinja2)
