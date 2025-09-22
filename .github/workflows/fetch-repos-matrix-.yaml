@@ -189,3 +189,74 @@ jobs:
             output/log.html
             output/reporter-final/
           retention-days: 7
+
+  consolidated-dashboard:
+    runs-on: fetch-repos-bot-runner-k8s
+    needs: [producer, consumer, reporter]
+    if: always()
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          clean: true
+
+      - name: Ensure RCC is installed
+        run: |
+          if ! command -v rcc &> /dev/null; then
+            echo "RCC not found. Downloading..."
+            curl -o rcc https://downloads.robocorp.com/rcc/releases/latest/linux64/rcc
+            chmod +x rcc
+            sudo mv rcc /usr/local/bin/
+          else
+            echo "RCC is already installed."
+          fi
+
+      - name: Disable RCC telemetry
+        run: rcc config identity -t
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4.3.0
+        with:
+          path: all-artifacts
+
+      - name: Organize output for dashboard
+        run: |
+          set -e
+          mkdir -p output/producer-to-consumer
+          mkdir -p output/consumer-to-reporter
+          mkdir -p output/screenshots
+
+          # Producer logs (if any were saved similarly)
+          if [ -f "all-artifacts/producer-output/producer-to-consumer/producer-logs.html" ]; then
+            cp all-artifacts/producer-output/producer-to-consumer/producer-logs.html output/producer-to-consumer/producer-logs.html || true
+          fi
+
+          # Merge consumer shard outputs into a consolidated file
+          if ls all-artifacts/shard-output-*/consumer-to-reporter/work-items-*.json >/dev/null 2>&1; then
+            find all-artifacts -type f -path "*/shard-output-*/consumer-to-reporter/work-items-*.json" -print0 | xargs -0 jq -s 'add' > output/consumer-to-reporter/work-items.json
+          else
+            echo "[]" > output/consumer-to-reporter/work-items.json
+          fi
+
+          # Reporter logs
+          if [ -f "all-artifacts/reporter-output/log.html" ]; then
+            cp all-artifacts/reporter-output/log.html output/reporter-logs.html || true
+          fi
+
+      - name: Generate Consolidated Dashboard (Jinja2)
+        run: |
+          rcc run -t GenerateConsolidatedDashboard
+          test -f output/consolidated_dashboard_jinja2.html
+
+      - name: Upload dashboard artifacts
+        uses: actions/upload-artifact@v4.6.2
+        with:
+          name: consolidated-dashboard-output
+          path: |
+            output/consolidated_dashboard_jinja2.html
+            output/consolidated_data.json
+            output/csv_exports/
+            output/consumer-to-reporter/
+            output/producer-to-consumer/
+            output/reporter-logs.html
+          retention-days: 7

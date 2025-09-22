@@ -367,3 +367,5 @@ def reporter():
         print(f"📄 Detailed report saved to: {report_file}")
     except Exception as e:
         print(f"Warning: Could not save detailed report: {e}")
+
+ 
