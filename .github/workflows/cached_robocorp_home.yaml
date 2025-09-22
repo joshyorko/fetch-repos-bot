@@ -42,7 +42,9 @@ jobs:
             curl -sSL https://downloads.robocorp.com/rcc/releases/v18.5.0/linux64/rcc -o .tools/rcc/v18.5.0/rcc
             chmod +x .tools/rcc/v18.5.0/rcc
           fi
+          # Make rcc available in this step and subsequent ones
           echo "${GITHUB_WORKSPACE}/.tools/rcc/v18.5.0" >> "$GITHUB_PATH"
+          export PATH="${GITHUB_WORKSPACE}/.tools/rcc/v18.5.0:$PATH"
           rcc version
 
       - name: Cache ROBOCORP_HOME
@@ -124,7 +126,9 @@ jobs:
             curl -sSL https://downloads.robocorp.com/rcc/releases/v18.5.0/linux64/rcc -o .tools/rcc/v18.5.0/rcc
             chmod +x .tools/rcc/v18.5.0/rcc
           fi
+          # Make rcc available in this step and subsequent ones
           echo "${GITHUB_WORKSPACE}/.tools/rcc/v18.5.0" >> "$GITHUB_PATH"
+          export PATH="${GITHUB_WORKSPACE}/.tools/rcc/v18.5.0:$PATH"
           rcc version
 
       - name: Cache ROBOCORP_HOME
@@ -199,7 +203,9 @@ jobs:
             curl -sSL https://downloads.robocorp.com/rcc/releases/v18.5.0/linux64/rcc -o .tools/rcc/v18.5.0/rcc
             chmod +x .tools/rcc/v18.5.0/rcc
           fi
+          # Make rcc available in this step and subsequent ones
           echo "${GITHUB_WORKSPACE}/.tools/rcc/v18.5.0" >> "$GITHUB_PATH"
+          export PATH="${GITHUB_WORKSPACE}/.tools/rcc/v18.5.0:$PATH"
           rcc version
 
       - name: Cache ROBOCORP_HOME
