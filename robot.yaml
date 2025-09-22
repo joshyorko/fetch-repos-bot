@@ -10,18 +10,7 @@ tasks:
     shell: python -m robocorp.tasks run tasks.py -t reporter
   GenerateConsolidatedDashboard:
     shell: python -m robocorp.tasks run generate_consolidated_dashboard.py -t generate_consolidated_dashboard
-  producer:
-    shell: python -m robocorp.tasks run tasks.py -t producer
-  consumer:
-    shell: python -m robocorp.tasks run tasks.py -t consumer
-  reporter:
-    shell: python -m robocorp.tasks run tasks.py -t reporter
-  generate_dashboard:
-    shell: python -m robocorp.tasks run generate_consolidated_dashboard.py -t generate_consolidated_dashboard
-  GenerateConsolidatedDashboard:
-    shell: python -m robocorp.tasks run generate_consolidated_dashboard.py -t generate_consolidated_dashboard
-  ArchiveOutputs:
-    shell: python -m robocorp.tasks run tasks.py -t archive_outputs
+
 
 environmentConfigs:
   - environment_windows_amd64_freeze.yaml

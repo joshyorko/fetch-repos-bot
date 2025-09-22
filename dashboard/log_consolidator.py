@@ -574,30 +574,46 @@ class LogConsolidator:
                                             continue  # Skip items not assigned to this shard
                             
                             status = payload.get('status', 'PENDING')
-                            if status == 'PASS':
+                            # Normalize status to PASS/FAIL format
+                            if status in ['PASS', 'success']:
                                 processed_items += 1
-                            elif status == 'FAIL':
+                                status = 'PASS'  # Normalize for counting
+                            elif status in ['FAIL', 'error', 'failed']:
                                 failed_items += 1
+                                status = 'FAIL'  # Normalize for counting
                             
-                            # Extract call ID from different possible fields
-                            call_id = (payload.get('callid') or 
-                                     payload.get('contact_id') or 
-                                     payload.get('call_id') or
-                                     item.get('id', ''))
+                            # Extract identifiers from the actual data structure
+                            # For GitHub repo fetching, use repo name as the main identifier
+                            repo_name = payload.get('name', '')
+                            repo_url = payload.get('url', '')
+                            
+                            # Use repo name as call_id and work_item_id since that's the unique identifier
+                            call_id = repo_name or repo_url or f"item-{item_count}"
+                            work_item_id = call_id
+                            
+                            # Convert status to expected format (PASS/FAIL instead of success/error)
+                            if status == 'success':
+                                status = 'PASS'
+                            elif status in ['error', 'failed']:
+                                status = 'FAIL'
+                            else:
+                                status = status.upper()
                             
                             # Add to work_items data
                             self.consolidated_data['work_items'].append({
                                 'task_name': task_name,
-                                'work_item_id': item.get('id', '') or payload.get('id', ''),
+                                'work_item_id': work_item_id,
                                 'call_id': call_id,
                                 'status': status,
-                                'original_file': payload.get('original_input_filename', ''),
+                                'original_file': repo_url,
                                 'error_message': payload.get('error', ''),
                                 'retry_attempted': payload.get('retry_attempted', False),
                                 'processing_time_ms': payload.get('processing_time_ms'),
                                 'screenshot_paths': payload.get('screenshot_links', []),
                                 'timestamp': datetime.now().isoformat()
                             })
+                            
+                            item_count += 1
                     
                     # Add task execution summary
                     self.consolidated_data['task_executions'].append({
