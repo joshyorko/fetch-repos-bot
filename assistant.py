@@ -9,6 +9,7 @@ import json
 import time
 import subprocess
 from typing import Dict, List, Optional, Tuple
+import sys
 from types import SimpleNamespace
 
 try:
@@ -126,10 +127,66 @@ def assistant_org():
         assistant.refresh_dialog()
 
     def run_rcc_task(command: List[str]) -> Tuple[bool, str]:
+        """Run an rcc task with a configurable timeout.
+
+        Environment variables to tune behavior:
+        - ASSISTANT_STAGE_TIMEOUT: seconds (float/int) per stage. Default 900 (15m).
+        - ASSISTANT_PRODUCER_TIMEOUT / ASSISTANT_CONSUMER_TIMEOUT / ASSISTANT_REPORTER_TIMEOUT / ASSISTANT_DASHBOARD_TIMEOUT
+          override per-stage when set (seconds).
+        - ASSISTANT_KILL_GRACE_PERIOD: seconds to wait after sending SIGTERM before SIGKILL. Default 10.
+        """
+        # Decide timeout based on command (-t <TaskName> expected)
+        stage_name = None
+        if "-t" in command:
+            try:
+                stage_name = command[command.index("-t") + 1]
+            except Exception:  # pragma: no cover - defensive
+                stage_name = None
+
+        base_timeout = float(os.getenv("ASSISTANT_STAGE_TIMEOUT", "900"))  # 15 minutes default
+        per_stage_env = None
+        if stage_name:
+            per_stage_env = os.getenv(f"ASSISTANT_{stage_name.upper()}_TIMEOUT")
+        if per_stage_env:
+            try:
+                timeout_seconds = float(per_stage_env)
+            except ValueError:
+                timeout_seconds = base_timeout
+        else:
+            timeout_seconds = base_timeout
+
+        grace_period = float(os.getenv("ASSISTANT_KILL_GRACE_PERIOD", "10"))
+
+        print(f"[assistant] Running: {' '.join(command)} (timeout={timeout_seconds}s stage={stage_name})")
+        start_time = time.time()
         try:
-            result = subprocess.run(command, capture_output=False, text=True)
-            success = result.returncode == 0
-            return success, ("Success" if success else f"Exit code {result.returncode}")
+            # Use Popen for streaming output; inherit stdout/stderr.
+            proc = subprocess.Popen(command, stdout=None, stderr=None, text=True)
+            while True:
+                ret = proc.poll()
+                if ret is not None:
+                    success = ret == 0
+                    elapsed = time.time() - start_time
+                    return success, ("Success" if success else f"Exit code {ret} after {elapsed:.1f}s")
+                elapsed = time.time() - start_time
+                if elapsed > timeout_seconds:
+                    print(f"[assistant] Stage {stage_name or command} exceeded timeout ({timeout_seconds}s). Sending SIGTERM...")
+                    try:
+                        proc.terminate()
+                    except Exception:
+                        pass
+                    # Wait grace period
+                    try:
+                        proc.wait(timeout=grace_period)
+                    except subprocess.TimeoutExpired:
+                        print(f"[assistant] Process did not exit in grace period ({grace_period}s). Sending SIGKILL...")
+                        try:
+                            proc.kill()
+                        except Exception:
+                            pass
+                    final_ret = proc.poll()
+                    return False, f"Timeout after {elapsed:.1f}s (limit {timeout_seconds}s)"
+                time.sleep(0.5)
         except FileNotFoundError:
             return (
                 False,
@@ -200,6 +257,9 @@ def assistant_org():
 
         render_progress(0, stage_status, stage_messages, org_name, max_workers_display)
 
+        # Keep merged consumer items for summary display (list of dict payloads)
+        consumer_merged_payloads: List[dict] = []
+
         for index, stage in enumerate(stage_order):
             dependencies = stage_dependencies.get(stage, [])
             if any(stage_status.get(dep) is not True for dep in dependencies):
@@ -234,11 +294,123 @@ def assistant_org():
                     ["rcc", "run", "-t", "Producer", "-e", str(env_path)]
                 )
             elif stage == "Consumer":
-                env_path = Path("devdata/env-for-consumer.json")
-                write_env(env_path, consumer_env)
-                success, message = run_rcc_task(
-                    ["rcc", "run", "-t", "Consumer", "-e", str(env_path)]
-                )
+                # 1. Generate shards based on MAX_WORKERS
+                try:
+                    shard_gen_cmd = [
+                        sys.executable,
+                        "scripts/generate_shards_and_matrix.py",
+                        max_workers_display,
+                    ]
+                    print(
+                        f"[assistant] Generating shards with command: {' '.join(shard_gen_cmd)}"
+                    )
+                    shard_proc = subprocess.run(
+                        shard_gen_cmd, capture_output=True, text=True
+                    )
+                    if shard_proc.returncode != 0:
+                        print(shard_proc.stdout)
+                        print(shard_proc.stderr)
+                        raise RuntimeError(
+                            f"Shard generation failed (exit {shard_proc.returncode})"
+                        )
+                    else:
+                        print(shard_proc.stdout)
+                except Exception as exc:
+                    stage_status[stage] = False
+                    stage_messages[stage] = f"Shard generation error: {exc}"
+                    render_progress(
+                        index + 1,
+                        stage_status,
+                        stage_messages,
+                        org_name,
+                        max_workers_display,
+                    )
+                    continue
+
+                # 2. Discover shards
+                shards_dir = Path("output/shards")
+                shard_files = sorted(shards_dir.glob("work-items-shard-*.json"))
+                if not shard_files:
+                    print("[assistant] No shard files found; nothing to consume.")
+                    success = True
+                    message = "No shards"
+                else:
+                    all_outputs: List[str] = []
+                    shard_success = True
+                    for shard_idx, shard_file in enumerate(shard_files):
+                        shard_env = consumer_env.copy()
+                        shard_env["RC_WORKITEM_INPUT_PATH"] = str(shard_file)
+                        shard_env["RC_WORKITEM_OUTPUT_PATH"] = (
+                            f"output/consumer-to-reporter/work-items-shard-{shard_idx}.json"
+                        )
+                        os.environ["SHARD_ID"] = str(shard_idx)
+                        env_path = Path(
+                            f"devdata/env-for-consumer-shard-{shard_idx}.json"
+                        )
+                        write_env(env_path, shard_env)
+                        print(
+                            f"[assistant] Running Consumer shard {shard_idx} with {shard_file.name}"
+                        )
+                        shard_ok, shard_msg = run_rcc_task(
+                            ["rcc", "run", "-t", "Consumer", "-e", str(env_path)]
+                        )
+                        print(
+                            f"[assistant] Consumer shard {shard_idx} result: {shard_ok} {shard_msg}"
+                        )
+                        shard_success = shard_success and shard_ok
+                        all_outputs.append(
+                            f"output/consumer-to-reporter/work-items-shard-{shard_idx}.json"
+                        )
+                        # Early abort if one shard fails? Keep going to gather more results.
+
+                    # 3. Merge shard outputs into consolidated file for Reporter stage
+                    consolidated_path = Path(
+                        "output/consumer-to-reporter/work-items.json"
+                    )
+                    merged_items: List[dict] = []
+                    for output_fp in all_outputs:
+                        p = Path(output_fp)
+                        if p.exists():
+                            try:
+                                with open(p, "r") as f:
+                                    data = json.load(f)
+                                    if isinstance(data, list):
+                                        # Items could be list of objects with 'payload' or raw dicts
+                                        for entry in data:
+                                            if isinstance(entry, dict):
+                                                payload = entry.get("payload") if "payload" in entry else entry
+                                                if isinstance(payload, dict):
+                                                    merged_items.append(payload)
+                                    else:
+                                        print(
+                                            f"[assistant] Skipping non-list output file {p}"
+                                        )
+                            except Exception as merge_exc:
+                                print(
+                                    f"[assistant] Error reading shard output {p}: {merge_exc}"
+                                )
+                        else:
+                            print(
+                                f"[assistant] Expected shard output file missing: {output_fp}"
+                            )
+                    try:
+                        consolidated_path.parent.mkdir(parents=True, exist_ok=True)
+                        with open(consolidated_path, "w") as f:
+                            json.dump(merged_items, f, indent=2)
+                        print(
+                            f"[assistant] Merged {len(merged_items)} items into {consolidated_path}"
+                        )
+                        consumer_merged_payloads = merged_items[:]  # copy for later summary
+                    except Exception as write_exc:
+                        shard_success = False
+                        print(
+                            f"[assistant] Failed writing consolidated consumer output: {write_exc}"
+                        )
+
+                    success = shard_success
+                    message = (
+                        f"Shards: {len(shard_files)} merged items: {len(merged_items)}"
+                    )
             elif stage == "Reporter":
                 env_path = Path("devdata/env-for-reporter.json")
                 write_env(env_path, reporter_env)
@@ -257,6 +429,145 @@ def assistant_org():
                 index + 1, stage_status, stage_messages, org_name, max_workers_display
             )
 
+    # After running all stages, attempt to build an enriched report view
+        def build_detailed_report() -> None:
+            nonlocal consumer_merged_payloads
+            """Augment final dialog with detailed reporter/consumer outputs.
+
+            Priority of data sources:
+              1. Consumer merged payloads captured in-memory.
+              2. Reporter final report JSON (final_report_*.json).
+              3. Fallback: read consolidated consumer-to-reporter work-items.json.
+            """
+            repos_payloads: List[dict] = []
+            if consumer_merged_payloads:
+                repos_payloads = consumer_merged_payloads
+            else:
+                # Try reporter summary file
+                reporter_dir = Path("output")
+                final_reports = sorted(
+                    reporter_dir.glob("final_report_*.json"), reverse=True
+                )
+                if final_reports:
+                    try:
+                        with open(final_reports[0], "r") as f:
+                            data = json.load(f)
+                            summary = data.get("summary", {})
+                            repo_entries = summary.get("repositories", [])
+                            for entry in repo_entries:
+                                if isinstance(entry, dict):
+                                    repos_payloads.append(entry)
+                    except Exception as exc:  # pragma: no cover - defensive
+                        print(
+                            f"[assistant] Could not parse reporter final report: {exc}"
+                        )
+                # If still empty, read consolidated consumer output raw
+                if not repos_payloads:
+                    cons_file = Path(
+                        "output/consumer-to-reporter/work-items.json"
+                    )
+                    if cons_file.exists():
+                        try:
+                            with open(cons_file, "r") as f:
+                                data = json.load(f)
+                                if isinstance(data, list):
+                                    for entry in data:
+                                        if isinstance(entry, dict):
+                                            payload = (
+                                                entry.get("payload")
+                                                if "payload" in entry
+                                                else entry
+                                            )
+                                            if isinstance(payload, dict):
+                                                repos_payloads.append(payload)
+                        except Exception as exc:
+                            print(
+                                f"[assistant] Failed reading consumer consolidated file: {exc}"
+                            )
+
+            if not repos_payloads:
+                assistant.add_heading("Run Summary", size="medium")
+                assistant.add_text("No repository payloads available to summarize.")
+                return
+
+            # Compute metrics
+            total = len(repos_payloads)
+            successes = sum(1 for r in repos_payloads if r.get("status") == "success")
+            failures = sum(1 for r in repos_payloads if r.get("status") == "failed")
+            released = sum(1 for r in repos_payloads if r.get("status") == "released")
+            already = sum(
+                1 for r in repos_payloads if r.get("status") == "already_exists"
+            )
+            other = total - successes - failures - released - already
+            success_rate = (successes / total * 100) if total else 0.0
+
+            assistant.add_heading("Run Summary", size="medium")
+            assistant.add_text(
+                "  |  ".join(
+                    [
+                        f"Total: {total}",
+                        f"Success: {successes}",
+                        f"Failed: {failures}",
+                        f"Released: {released}",
+                        f"Already: {already}",
+                        f"Other: {other}",
+                        f"Success Rate: {success_rate:.1f}%",
+                    ]
+                )
+            )
+
+            # Visual distribution bar
+            if total:
+                def blocks(count: int) -> int:
+                    return int(round((count / total) * 40))  # 40 char bar
+
+                bar = (
+                    "▇" * blocks(successes)
+                    + "▅" * blocks(failures)
+                    + "▂" * blocks(released)
+                    + "■" * blocks(already)
+                    + "·" * max(
+                        0,
+                        40
+                        - blocks(successes)
+                        - blocks(failures)
+                        - blocks(released)
+                        - blocks(already),
+                    )
+                )
+                legend = "▇ success  ▅ failed  ▂ released  ■ existing  · other"
+                assistant.add_text(f"Distribution: {bar}", size="small")
+                assistant.add_text(legend, size="small")
+
+            # Prepare table rows (limit)
+            limit = int(os.getenv("ASSISTANT_REPORT_ROWS", "50"))
+            display_rows = []
+            for r in repos_payloads[:limit]:
+                display_rows.append(
+                    [
+                        r.get("org", org_name),
+                        r.get("name") or r.get("Name"),
+                        r.get("status"),
+                        (r.get("url") or r.get("URL") or "")[:70],
+                        (r.get("error") or "")[:50],
+                    ]
+                )
+
+            if display_rows:
+                headers = ["Org", "Repo", "Status", "URL", "Error"]
+                try:
+                    assistant.add_table(headers, display_rows, id="repos_table")
+                except Exception:
+                    assistant.add_text("Repository details:")
+                    for row in display_rows:
+                        assistant.add_text(" | ".join(str(c) for c in row), size="small")
+
+            if len(repos_payloads) > limit:
+                assistant.add_text(
+                    f"(Showing first {limit} of {len(repos_payloads)} repositories)",
+                    size="small",
+                )
+
         render_progress(
             len(stage_order),
             stage_status,
@@ -265,6 +576,12 @@ def assistant_org():
             max_workers_display,
             final=True,
         )
+        try:
+            # Append additional details beneath the existing final view
+            build_detailed_report()
+            assistant.refresh_dialog()
+        except Exception as exc:  # pragma: no cover - defensive
+            print(f"[assistant] Failed building detailed report UI: {exc}")
 
         if stage_status.get("Dashboard") is True:
             print("Dashboard generated at output/consolidated_dashboard_jinja2.html")
