@@ -122,7 +122,8 @@ def assistant_org():
         if final:
             assistant.add_text("")
             assistant.add_button("Run Again", lambda: reset_form())
-            assistant.add_submit_buttons(buttons="Close", default="Close")
+            # Use a plain close button to avoid triggering validation on now-missing form fields
+            assistant.add_button("Close", lambda: assistant.close_dialog())
 
         assistant.refresh_dialog()
 
