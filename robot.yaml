@@ -11,7 +11,7 @@ tasks:
   GenerateConsolidatedDashboard:
     shell: python -m robocorp.tasks run generate_consolidated_dashboard.py -t generate_consolidated_dashboard
   AssistantOrg:
-    shell: python -m robocorp.tasks run tasks.py -t assistant_org
+    shell: python -m robocorp.tasks run assistant.py -t assistant_org
 
 
 environmentConfigs:
