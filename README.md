@@ -104,6 +104,41 @@ Key highlights:
 3. **Custom Execution:**
    - You can run individual tasks using RCC or Python as defined in `robot.yaml`.
 
+### AssistantOrg Interactive Pipeline Launcher
+
+The `AssistantOrg` task provides an intuitive GUI to configure and run the complete fetch-repos-bot pipeline locally, mirroring the GitHub Actions workflow.
+
+Run it:
+```bash
+rcc run -t AssistantOrg
+```
+
+**Flow:**
+1. **Configuration Dialog**: Enter GitHub organization name and max workers
+2. **Single "Run Pipeline" Button**: Starts the complete workflow
+3. **Live Progress**: Shows current stage with loading bar and previous results
+4. **Complete Pipeline**: Producer → Consumer → Reporter → Dashboard (same as GitHub Actions)
+5. **Persistent Results Summary**: Final view stays open with success/failure per stage and a "Run Again" button
+
+**What it does:**
+- Creates proper work-items files and environment configs (like GitHub Actions)
+- Runs each task via RCC with proper isolation and logging
+- Handles failures gracefully (skips dependent stages if prerequisites fail)
+- Generates the complete dashboard and reports in `output/`
+- Shows clear visual feedback throughout the process without closing the window
+
+**Output Files:**
+- `output/consolidated_dashboard_jinja2.html` - Main dashboard
+- `output/final_report_*.json` - Processing summary
+- `output/*.zip` - Cloned repositories
+- Console logs for each stage
+
+**Advantages over manual execution:**
+- No need to manually create work-items files or environment configs
+- Visual progress tracking and error handling
+- Runs the complete end-to-end pipeline in one action
+- Intuitive GUI without complex command-line parameters
+
 ---
 
 ## GitHub Actions Workflows
