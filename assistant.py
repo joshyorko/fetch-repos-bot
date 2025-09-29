@@ -1,4 +1,3 @@
-
 from pathlib import Path
 from robocorp import workitems
 from robocorp.tasks import get_output_dir, task
@@ -11,6 +10,7 @@ import time
 import subprocess
 from typing import Dict, List, Optional, Tuple
 from types import SimpleNamespace
+
 try:
     # Assistant is optional at runtime; import guarded to avoid breaking existing tasks if dependency missing.
     from RPA.Assistant import Assistant  # Provided by rpaframework-assistant
@@ -23,10 +23,10 @@ except ImportError:  # pragma: no cover - defensive
 from scripts.tools import (
     task_context,
     manage_consumer_directory,
-    measure_task_time, 
+    measure_task_time,
     handle_task_errors,
     get_org_name,
-    repos
+    repos,
 )
 
 HEADLESS_FLAGS = {"1", "true", "yes", "on"}
@@ -35,7 +35,9 @@ HEADLESS_FLAGS = {"1", "true", "yes", "on"}
 def is_headless_environment() -> bool:
     """Detect whether the assistant should skip launching a UI."""
 
-    forced = os.environ.get("ASSISTANT_HEADLESS") or os.environ.get("RC_ASSISTANT_HEADLESS")
+    forced = os.environ.get("ASSISTANT_HEADLESS") or os.environ.get(
+        "RC_ASSISTANT_HEADLESS"
+    )
     if forced and forced.strip().lower() in HEADLESS_FLAGS:
         return True
 
@@ -50,9 +52,6 @@ def is_headless_environment() -> bool:
     return False
 
 
-
-
- 
 @task
 def assistant_org():
     """Interactive pipeline launcher using RPA.Assistant.
@@ -61,7 +60,9 @@ def assistant_org():
     and streams progress updates without closing the window.
     """
     if Assistant is None:
-        print("Assistant library not available (rpaframework-assistant missing). Aborting.")
+        print(
+            "Assistant library not available (rpaframework-assistant missing). Aborting."
+        )
         return
 
     assistant = Assistant()
@@ -84,7 +85,7 @@ def assistant_org():
         final: bool = False,
     ) -> None:
         assistant.clear_dialog()
-        assistant.add_heading("Fetch Repos Bot Pipeline", size="large")
+        assistant.add_heading("Producer-Consumer-Pipeline", size="large")
         assistant.add_text(f"Organization: {org_name}")
         assistant.add_text(f"Max Workers: {max_workers_display}")
 
@@ -130,7 +131,10 @@ def assistant_org():
             success = result.returncode == 0
             return success, ("Success" if success else f"Exit code {result.returncode}")
         except FileNotFoundError:
-            return False, "rcc command not found. Install RCC CLI and ensure it is on PATH."
+            return (
+                False,
+                "rcc command not found. Install RCC CLI and ensure it is on PATH.",
+            )
         except Exception as exc:  # pragma: no cover - defensive
             return False, str(exc)
 
@@ -152,7 +156,9 @@ def assistant_org():
             return
 
         max_workers_display = str(max_workers_int)
-        print(f"Starting pipeline for organization: {org_name} (max workers: {max_workers_display})")
+        print(
+            f"Starting pipeline for organization: {org_name} (max workers: {max_workers_display})"
+        )
 
         # Prepare environment and input artifacts
         os.environ["ORG_NAME"] = org_name
@@ -197,34 +203,59 @@ def assistant_org():
         for index, stage in enumerate(stage_order):
             dependencies = stage_dependencies.get(stage, [])
             if any(stage_status.get(dep) is not True for dep in dependencies):
-                missing = ", ".join(dep for dep in dependencies if stage_status.get(dep) is not True)
+                missing = ", ".join(
+                    dep for dep in dependencies if stage_status.get(dep) is not True
+                )
                 stage_status[stage] = "skipped"
                 stage_messages[stage] = f"Skipped because {missing} did not succeed."
-                render_progress(index + 1, stage_status, stage_messages, org_name, max_workers_display)
+                render_progress(
+                    index + 1,
+                    stage_status,
+                    stage_messages,
+                    org_name,
+                    max_workers_display,
+                )
                 continue
 
-            render_progress(index, stage_status, stage_messages, org_name, max_workers_display, running_stage=stage)
+            render_progress(
+                index,
+                stage_status,
+                stage_messages,
+                org_name,
+                max_workers_display,
+                running_stage=stage,
+            )
             print(f"Running {stage} ({index + 1}/{len(stage_order)})…")
 
             if stage == "Producer":
                 env_path = Path("devdata/env-for-producer.json")
                 write_env(env_path, producer_env)
-                success, message = run_rcc_task(["rcc", "run", "-t", "Producer", "-e", str(env_path)])
+                success, message = run_rcc_task(
+                    ["rcc", "run", "-t", "Producer", "-e", str(env_path)]
+                )
             elif stage == "Consumer":
                 env_path = Path("devdata/env-for-consumer.json")
                 write_env(env_path, consumer_env)
-                success, message = run_rcc_task(["rcc", "run", "-t", "Consumer", "-e", str(env_path)])
+                success, message = run_rcc_task(
+                    ["rcc", "run", "-t", "Consumer", "-e", str(env_path)]
+                )
             elif stage == "Reporter":
                 env_path = Path("devdata/env-for-reporter.json")
                 write_env(env_path, reporter_env)
-                success, message = run_rcc_task(["rcc", "run", "-t", "Reporter", "-e", str(env_path)])
+                success, message = run_rcc_task(
+                    ["rcc", "run", "-t", "Reporter", "-e", str(env_path)]
+                )
             else:  # Dashboard
-                success, message = run_rcc_task(["rcc", "run", "-t", "GenerateConsolidatedDashboard"])
+                success, message = run_rcc_task(
+                    ["rcc", "run", "-t", "GenerateConsolidatedDashboard"]
+                )
 
             stage_status[stage] = success
             stage_messages[stage] = message
 
-            render_progress(index + 1, stage_status, stage_messages, org_name, max_workers_display)
+            render_progress(
+                index + 1, stage_status, stage_messages, org_name, max_workers_display
+            )
 
         render_progress(
             len(stage_order),
@@ -242,10 +273,14 @@ def assistant_org():
 
         print("Pipeline execution finished. You can close the assistant or run again.")
 
-    def reset_form(error_message: Optional[str] = None, *, refresh: bool = True) -> None:
+    def reset_form(
+        error_message: Optional[str] = None, *, refresh: bool = True
+    ) -> None:
         assistant.clear_dialog()
         assistant.add_heading("Fetch Repos Bot Pipeline", size="large")
-        assistant.add_text("Configure and run the complete repository fetching pipeline.")
+        assistant.add_text(
+            "Configure and run the complete repository fetching pipeline."
+        )
 
         if error_message:
             assistant.add_text(f"⚠️ {error_message}", size="small")
@@ -272,4 +307,3 @@ def assistant_org():
 
     reset_form(refresh=False)
     assistant.run_dialog(title="Fetch Repos Bot Assistant", width=640, height=520)
-
