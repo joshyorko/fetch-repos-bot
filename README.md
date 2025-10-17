@@ -180,3 +180,19 @@ Contributions are welcome! Please open issues or submit pull requests for improv
 - [Robocorp Documentation](https://robocorp.com/docs/)
 - [RCC Documentation](https://github.com/robocorp/rcc)
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
+
+## Authentication for private repositories
+
+If you want to fetch or clone private repositories, supply a GitHub Personal Access Token (PAT) via an environment variable named `GITHUB_TOKEN` or `GH_TOKEN` before running the producer or consumer tasks. The token will be used for API requests (higher rate limits and access to private repos) and for cloning via HTTPS.
+
+Example (bash/zsh):
+
+```bash
+export GITHUB_TOKEN=ghp_xxxYOURTOKENxxx
+./start.sh
+```
+
+Security notes:
+- Keep tokens secret and prefer repository or runner-level secrets when running in CI/CD
+- The code injects the token into HTTPS clone URLs at runtime; it is not logged by default but avoid printing environment variables in CI logs.
+

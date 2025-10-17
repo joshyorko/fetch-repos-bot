@@ -165,8 +165,21 @@ def consumer():
                 continue
             
             try:
+                # If a GitHub token is provided, and the clone URL is HTTPS, inject the token
+                # into the URL so private repositories can be cloned:
+                # https://github.com/owner/repo.git -> https://<token>@github.com/owner/repo.git
+                token = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
+                clone_url = url
+                if token and url.startswith("https://"):
+                    # Insert token after scheme and before the host. Do not log token.
+                    try:
+                        scheme, rest = url.split("//", 1)
+                        clone_url = f"{scheme}//{token}@{rest}"
+                    except ValueError:
+                        clone_url = url
+
                 # Clone with GitPython, with timeout and better error handling
-                repo = Repo.clone_from(url, repo_path, depth=1)  # Shallow clone for efficiency
+                repo = Repo.clone_from(clone_url, repo_path, depth=1)  # Shallow clone for efficiency
                 print(f"[Shard {shard_id}] {org_name}/{repo_name} - ✓")
                 processed_repos.append({
                     "name": repo_name,

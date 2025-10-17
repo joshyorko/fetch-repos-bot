@@ -1,3 +1,4 @@
+import os
 import requests
 from pathlib import Path
 from pandas import DataFrame
@@ -21,16 +22,23 @@ def get_repo_root() -> Path:
 
 def fetch_github_repos(entity: str, entity_type: str = None, write_csv: bool = False) -> DataFrame:
     """
-    Fetch public repositories from a GitHub organization or user.
-    
+    Fetch repositories from a GitHub organization or user.
+
+    If a GitHub Personal Access Token (PAT) is supplied via the environment variable
+    `GITHUB_TOKEN` (or `GH_TOKEN`), the function will use it for API requests and
+    will include private repositories in the results. Without a token only public
+    repositories are returned.
+
     Args:
         entity (str): The name of the organization or user
         entity_type (str, optional): Type of entity ('org' or 'user'). If None, will auto-detect.
         write_csv (bool): Whether to write the results to a CSV file. If False, returns DataFrame.
-    
+
     Returns:
         pandas.DataFrame: DataFrame containing repository information
     """
+    # Read token from environment (support both common names)
+    token = os.getenv("GITHUB_TOKEN") or os.getenv("GH_TOKEN")
     # Auto-detect entity type if not specified
     if entity_type is None:
         # Try to determine if it's an org or user
@@ -49,8 +57,11 @@ def fetch_github_repos(entity: str, entity_type: str = None, write_csv: bool = F
     per_page = 100
     headers = {
         "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
+        "User-Agent": "fetch-repos-bot/1.0"
     }
+    if token:
+        # Use token for authenticated requests (allows higher rate limits and access to private repos)
+        headers["Authorization"] = f"token {token}"
     repo_list = []
     page = 1
 
@@ -81,17 +92,21 @@ def fetch_github_repos(entity: str, entity_type: str = None, write_csv: bool = F
             break
 
         for repo in repos:
-            if not repo.get("private", True):  # Only include public repos
-                repo_list.append({
-                    "Name": repo.get("name"),
-                    "Description": repo.get("description"),
-                    "Language": repo.get("language"),
-                    "Stars": repo.get("stargazers_count"),
-                    "URL": repo.get("clone_url"),  # Use clone_url for git operations
-                    "Created": repo.get("created_at"),
-                    "Last Updated": repo.get("updated_at"),
-                    "Is Fork": repo.get("fork", False)
-                })
+            # If the repo is private and we don't have a token, skip it.
+            if repo.get("private", False) and not token:
+                continue
+
+            repo_list.append({
+                "Name": repo.get("name"),
+                "Description": repo.get("description"),
+                "Language": repo.get("language"),
+                "Stars": repo.get("stargazers_count"),
+                "URL": repo.get("clone_url"),  # Use clone_url for git operations
+                "Created": repo.get("created_at"),
+                "Last Updated": repo.get("updated_at"),
+                "Is Fork": repo.get("fork", False),
+                "Private": repo.get("private", False)
+            })
 
         print(f"Fetched page {page} with {len(repos)} repositories. Total fetched so far: {len(repo_list)}")
         
