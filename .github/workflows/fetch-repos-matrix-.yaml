@@ -272,6 +272,10 @@ jobs:
           if [ -f output/all-repos.zip ]; then
             echo "output/all-repos.zip exists. Listing contents:"
             unzip -l output/all-repos.zip
+            if ls output/repos-shard-*.zip >/dev/null 2>&1; then
+              echo "Found individual repos-shard zip files:";
+              ls -l output/repos-shard-*.zip || true
+            fi
           else
             echo "ERROR: output/all-repos.zip was not created!"
             exit 1
@@ -288,6 +292,15 @@ jobs:
             # Zip all work-items-*.json files from all shards into a single archive
             echo "Zipping all consumer-to-reporter work-items-*.json files into output/all-repos.zip..."
             find all-artifacts -type f -path "*/shard-output-*/consumer-to-reporter/work-items-*.json" -print0 | xargs -0 zip -j output/all-repos.zip
+            # Also include any repos shard zip files produced by consumers (repos-shard-*.zip)
+            repo_zip_count=$(find all-artifacts -type f -name "repos-shard-*.zip" | wc -l)
+            if [ "$repo_zip_count" -gt 0 ]; then
+              echo "Including consumer repos shard zips into output/all-repos.zip and copying to output/"
+              # Copy repo shard zips into output for visibility
+              find all-artifacts -type f -name "repos-shard-*.zip" -exec cp {} output/ \;
+              # Add the repo shard zip files into the aggregate zip
+              find all-artifacts -type f -name "repos-shard-*.zip" -print0 | xargs -0 zip -u -j output/all-repos.zip
+            fi
           else
             echo "[]" > output/consumer-to-reporter/work-items.json
             # Still create an empty zip if no files found
@@ -326,6 +339,7 @@ jobs:
             output/consumer-to-reporter/
             output/producer-to-consumer/
             output/reporter-logs.html
+            output/repos-shard-*.zip
             output/all-repos.zip
           retention-days: 7
 
