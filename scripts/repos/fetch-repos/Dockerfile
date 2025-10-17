@@ -1,11 +1,11 @@
 # Base on the official GitHub Actions Runner image
-FROM ghcr.io/actions/actions-runner:2.326.0
+FROM ghcr.io/actions/actions-runner:2.328.0
 
 # Switch to root for installations
 USER root
 
 # Install rcc (Robocorp Command Center)
-RUN curl -o rcc https://downloads.robocorp.com/rcc/releases/v18.5.0/linux64/rcc \
+RUN curl -o rcc https://github.com/joshyorko/rcc/releases/download/v18.8.0/rcc-linux64 \
  && chmod a+x rcc \
  && mv rcc /usr/local/bin/
 

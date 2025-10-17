@@ -32,28 +32,28 @@ jobs:
       - name: Restore RCC binary cache
         uses: actions/cache@v4
         with:
-          path: .tools/rcc/v18.5.0/rcc
-          key: rcc-bin-${{ runner.os }}-v18.5.0
+          path: .tools/rcc/v18.8.0/rcc
+          key: rcc-bin-${{ runner.os }}-v18.8.0
 
       - name: Install RCC (if cache miss)
         run: |
-          if [ ! -x .tools/rcc/v18.5.0/rcc ]; then
-            mkdir -p .tools/rcc/v18.5.0
-            curl -sSL https://downloads.robocorp.com/rcc/releases/v18.5.0/linux64/rcc -o .tools/rcc/v18.5.0/rcc
-            chmod +x .tools/rcc/v18.5.0/rcc
+          if [ ! -x .tools/rcc/v18.8.0/rcc ]; then
+            mkdir -p .tools/rcc/v18.8.0
+            curl -sSL https://github.com/joshyorko/rcc/releases/download/v18.8.0/rcc-linux64 -o .tools/rcc/v18.8.0/rcc
+            chmod +x .tools/rcc/v18.8.0/rcc
           fi
           # Make rcc available in this step and subsequent ones
-          echo "${GITHUB_WORKSPACE}/.tools/rcc/v18.5.0" >> "$GITHUB_PATH"
-          export PATH="${GITHUB_WORKSPACE}/.tools/rcc/v18.5.0:$PATH"
+          echo "${GITHUB_WORKSPACE}/.tools/rcc/v18.8.0" >> "$GITHUB_PATH"
+          export PATH="${GITHUB_WORKSPACE}/.tools/rcc/v18.8.0:$PATH"
           rcc version
 
       - name: Cache ROBOCORP_HOME
         uses: actions/cache@v4
         with:
           path: ${{ env.ROBOCORP_HOME }}
-          key: rcc-home-${{ runner.os }}-rccv18.5.0-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
+          key: rcc-home-${{ runner.os }}-rccv18.8.0-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
           restore-keys: |
-            rcc-home-${{ runner.os }}-rccv18.5.0-
+            rcc-home-${{ runner.os }}-rccv18.8.0-
             rcc-home-${{ runner.os }}-
 
       - name: Disable RCC telemetry
@@ -121,8 +121,8 @@ jobs:
       - name: Restore RCC binary cache
         uses: actions/cache@v4
         with:
-          path: .tools/rcc/v18.5.0/rcc
-          key: rcc-bin-${{ runner.os }}-v18.5.0
+          path: .tools/rcc/v18.8.0/rcc
+          key: rcc-bin-${{ runner.os }}-v18.8.0
 
       - name: Install RCC (if cache miss)
         run: |
@@ -324,22 +324,22 @@ jobs:
 
       - name: Install RCC (if cache miss)
         run: |
-          if [ ! -x .tools/rcc/v18.5.0/rcc ]; then
-            mkdir -p .tools/rcc/v18.5.0
-            curl -sSL https://downloads.robocorp.com/rcc/releases/v18.5.0/linux64/rcc -o .tools/rcc/v18.5.0/rcc
-            chmod +x .tools/rcc/v18.5.0/rcc
+          if [ ! -x .tools/rcc/v18.8.0/rcc ]; then
+            mkdir -p .tools/rcc/v18.8.0
+            curl -sSL https://github.com/joshyorko/rcc/releases/download/v18.8.0/rcc-linux64 -o .tools/rcc/v18.8.0/rcc
+            chmod +x .tools/rcc/v18.8.0/rcc
           fi
-          echo "${GITHUB_WORKSPACE}/.tools/rcc/v18.5.0" >> "$GITHUB_PATH"
-          export PATH="${GITHUB_WORKSPACE}/.tools/rcc/v18.5.0:$PATH"
+          echo "${GITHUB_WORKSPACE}/.tools/rcc/v18.8.0" >> "$GITHUB_PATH"
+          export PATH="${GITHUB_WORKSPACE}/.tools/rcc/v18.8.0:$PATH"
           rcc version
 
       - name: Cache ROBOCORP_HOME
         uses: actions/cache@v4
         with:
           path: ${{ env.ROBOCORP_HOME }}
-          key: rcc-home-${{ runner.os }}-rccv18.5.0-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
+          key: rcc-home-${{ runner.os }}-rccv18.8.0-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
           restore-keys: |
-            rcc-home-${{ runner.os }}-rccv18.5.0-
+            rcc-home-${{ runner.os }}-rccv18.8.0-
             rcc-home-${{ runner.os }}-
 
       - name: Disable RCC telemetry
@@ -380,12 +380,21 @@ jobs:
           files_to_merge=$(find all-artifacts -type f -path "*/shard-output-*/consumer-to-reporter/work-items-*.json" | wc -l)
           if [ "$files_to_merge" -gt 0 ]; then
             find all-artifacts -type f -path "*/shard-output-*/consumer-to-reporter/work-items-*.json" -print0 | xargs -0 jq -s 'add' > output/consumer-to-reporter/work-items.json
+            # Zip all work-items-*.json files from all shards into a single archive
+            echo "Zipping all consumer-to-reporter work-items-*.json files into output/all-repos.zip..."
+            find all-artifacts -type f -path "*/shard-output-*/consumer-to-reporter/work-items-*.json" -print0 | xargs -0 zip -j output/all-repos.zip
           else
             # Fallback: reporter-final/work-items.json
             if [ -f "all-artifacts/reporter-output/reporter-final/work-items.json" ]; then
               cp all-artifacts/reporter-output/reporter-final/work-items.json output/consumer-to-reporter/work-items.json
+              # Zip the fallback file as well
+              echo "Zipping fallback reporter-final/work-items.json into output/all-repos.zip..."
+              zip -j output/all-repos.zip all-artifacts/reporter-output/reporter-final/work-items.json
             else
               echo "[]" > output/consumer-to-reporter/work-items.json
+              # Still create an empty zip if no files found
+              echo "No work-items-*.json files found, creating empty output/all-repos.zip"
+              zip -j output/all-repos.zip /dev/null || true
             fi
           fi
 
@@ -398,6 +407,16 @@ jobs:
           # Placeholder if none
           if ! ls output/consumer-to-reporter/consumer-shard-*-logs.html >/dev/null 2>&1; then
             echo "<html><body><h1>No Consumer Logs Available</h1></body></html>" > output/consumer-to-reporter/consumer-logs.html
+          fi
+
+      - name: Verify zipped all-repos file
+        run: |
+          if [ -f output/all-repos.zip ]; then
+            echo "output/all-repos.zip exists. Listing contents:"
+            unzip -l output/all-repos.zip
+          else
+            echo "ERROR: output/all-repos.zip was not created!"
+            exit 1
           fi
 
       - name: Generate Consolidated Dashboard
@@ -415,6 +434,7 @@ jobs:
             output/csv_exports/
             output/consumer-to-reporter/
             output/reporter-logs.html
+            output/all-repos.zip
           retention-days: 7
 
       - name: Dashboard Generation Summary

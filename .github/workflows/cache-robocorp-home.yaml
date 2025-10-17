@@ -14,7 +14,7 @@ jobs:
       - name: Setup RCC (if needed)
         run: |
           if ! command -v rcc &> /dev/null; then
-            curl -Ls -o rcc https://downloads.robocorp.com/rcc/releases/v18.5.0/linux64/rcc
+            curl -Ls -o rcc https://github.com/joshyorko/rcc/releases/download/v18.8.0/rcc-linux64
             chmod a+x rcc
             sudo mv rcc /usr/local/bin/
           fi

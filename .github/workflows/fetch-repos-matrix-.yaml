@@ -84,7 +84,7 @@ jobs:
         run: |
           if ! command -v rcc &> /dev/null; then
             echo "RCC not found. Downloading..."
-            curl -o rcc https://downloads.robocorp.com/rcc/releases/latest/linux64/rcc
+            curl -o rcc https://github.com/joshyorko/rcc/releases/download/v18.8.0/rcc-linux64
             chmod +x rcc
             sudo mv rcc /usr/local/bin/
           else
@@ -267,6 +267,15 @@ jobs:
           mkdir -p output/producer-to-consumer
           mkdir -p output/consumer-to-reporter
           mkdir -p output/screenshots
+      - name: Verify zipped all-repos file
+        run: |
+          if [ -f output/all-repos.zip ]; then
+            echo "output/all-repos.zip exists. Listing contents:"
+            unzip -l output/all-repos.zip
+          else
+            echo "ERROR: output/all-repos.zip was not created!"
+            exit 1
+          fi
 
           # Producer logs (if any were saved similarly)
           if [ -f "all-artifacts/producer-output/producer-to-consumer/producer-logs.html" ]; then
@@ -276,8 +285,14 @@ jobs:
           # Merge consumer shard outputs into a consolidated file
           if ls all-artifacts/shard-output-*/consumer-to-reporter/work-items-*.json >/dev/null 2>&1; then
             find all-artifacts -type f -path "*/shard-output-*/consumer-to-reporter/work-items-*.json" -print0 | xargs -0 jq -s 'add' > output/consumer-to-reporter/work-items.json
+            # Zip all work-items-*.json files from all shards into a single archive
+            echo "Zipping all consumer-to-reporter work-items-*.json files into output/all-repos.zip..."
+            find all-artifacts -type f -path "*/shard-output-*/consumer-to-reporter/work-items-*.json" -print0 | xargs -0 zip -j output/all-repos.zip
           else
             echo "[]" > output/consumer-to-reporter/work-items.json
+            # Still create an empty zip if no files found
+            echo "No work-items-*.json files found, creating empty output/all-repos.zip"
+            zip -j output/all-repos.zip /dev/null || true
           fi
 
           # Reporter logs
@@ -311,6 +326,7 @@ jobs:
             output/consumer-to-reporter/
             output/producer-to-consumer/
             output/reporter-logs.html
+            output/all-repos.zip
           retention-days: 7
 
       - name: Dashboard Generation Summary
