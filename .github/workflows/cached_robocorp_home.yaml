@@ -140,9 +140,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.ROBOCORP_HOME }}
-          key: rcc-home-${{ runner.os }}-rccv18.5.0-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
+          key: rcc-home-${{ runner.os }}-rccv18.8.0-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
           restore-keys: |
-            rcc-home-${{ runner.os }}-rccv18.5.0-
+            rcc-home-${{ runner.os }}-rccv18.8.0-
             rcc-home-${{ runner.os }}-
 
       - name: Disable RCC telemetry
@@ -231,9 +231,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ${{ env.ROBOCORP_HOME }}
-          key: rcc-home-${{ runner.os }}-rccv18.5.0-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
+          key: rcc-home-${{ runner.os }}-rccv18.8.0-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
           restore-keys: |
-            rcc-home-${{ runner.os }}-rccv18.5.0-
+            rcc-home-${{ runner.os }}-rccv18.8.0-
             rcc-home-${{ runner.os }}-
 
       - name: Disable RCC telemetry
