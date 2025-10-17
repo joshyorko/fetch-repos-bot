@@ -7,46 +7,16 @@ from git import Repo
 from git.exc import GitCommandError
 import json
 import time
-import subprocess
-from typing import Dict, List, Optional, Tuple
-from types import SimpleNamespace
-try:
-    # Assistant is optional at runtime; import guarded to avoid breaking existing tasks if dependency missing.
-    from RPA.Assistant import Assistant  # Provided by rpaframework-assistant
-    from RPA.Assistant.flet_client import TimeoutException
-except ImportError:  # pragma: no cover - defensive
-    Assistant = None  # type: ignore
-    TimeoutException = Exception  # type: ignore
+
+TimeoutException = Exception  # type: ignore
 
 # Import utility functions and fixtures from tools module
 from scripts.tools import (
     task_context,
-    manage_consumer_directory,
-    measure_task_time, 
-    handle_task_errors,
     get_org_name,
     repos
 )
 
-HEADLESS_FLAGS = {"1", "true", "yes", "on"}
-
-
-def is_headless_environment() -> bool:
-    """Detect whether the assistant should skip launching a UI."""
-
-    forced = os.environ.get("ASSISTANT_HEADLESS") or os.environ.get("RC_ASSISTANT_HEADLESS")
-    if forced and forced.strip().lower() in HEADLESS_FLAGS:
-        return True
-
-    # CI environments often set CI=1
-    if os.environ.get("CI", "").strip().lower() in HEADLESS_FLAGS:
-        return True
-
-    # If no display is available on Unix-like systems, assume headless
-    if os.name != "nt" and not os.environ.get("DISPLAY"):
-        return True
-
-    return False
 
 
 @task
