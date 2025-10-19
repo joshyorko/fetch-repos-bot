@@ -1,5 +1,5 @@
 from pathlib import Path
-from robocorp import workitems, log
+from robocorp import log, workitems
 from robocorp.tasks import get_output_dir, task
 import shutil
 import os
@@ -7,7 +7,6 @@ from git import Repo
 from git.exc import GitCommandError
 import json
 import time
-import re
 
 TimeoutException = Exception  # type: ignore
 
@@ -72,7 +71,7 @@ def producer():
                         
                         # Validate required fields
                         if not repo_payload.get("URL") or not repo_payload.get("Name"):
-                            log.debug(f"Skipping repository with missing URL or Name: {repo_payload}")
+                            log.warn(f"Skipping repository with missing URL or Name: {repo_payload}")
                             continue
                             
                         # Create work item
@@ -89,7 +88,7 @@ def producer():
                 # Mark the input item as done only after all work items are created
                 item.done()
             else:
-                log.debug("No data received from repos() function")
+                log.warn("No data received from repos() function")
                 item.fail("BUSINESS", code="NO_DATA", message="No repositories found for organization")
                 
         except Exception as e:
@@ -101,9 +100,6 @@ def producer():
 def consumer():
     """Clones all the repositories from the input Work Items and zips them and saves them to the output directory."""
     output = get_output_dir() or Path("output")
-
-    # Convert inputs to a list so we can inspect the first item for org name
-    inputs = list(workitems.inputs)
     
     # Get the managed directory from the fixture via context
     repos_dir = task_context.get("repos_dir")
@@ -112,36 +108,19 @@ def consumer():
 
     # Get shard ID for unique naming
     shard_id = os.getenv("SHARD_ID", "0")
-
-    # Determine organization name to include in filenames. Preference order:
-    # 1) ORG_NAME env via get_org_name(), 2) org field from the first input work item, 3) unknown-org
-    org_name = get_org_name()
-    if not org_name and inputs:
-        try:
-            first_payload = inputs[0].payload
-            if isinstance(first_payload, dict):
-                org_name = first_payload.get("org") or first_payload.get("ORG")
-        except Exception:
-            # If something goes wrong reading the first item, we'll fall back to env or unknown
-            org_name = org_name
-
-    if not org_name:
-        org_name = "unknown-org"
-
-    # Sanitize org name for safe filenames: allow alphanumerics, dash and underscore
-    sanitized_org = re.sub(r"[^A-Za-z0-9_-]", "-", org_name)
-
-    filename = f"repos-{sanitized_org}-shard-{shard_id}.zip"
+    filename = f"repos-shard-{shard_id}.zip"
     output_path = output / filename
     
     processed_repos = []
     git_repos = []  # Track successfully cloned repo paths
     
-    # Define report path before use (include sanitized org)
-    report_path = output / f"report-{sanitized_org}-shard-{shard_id}.json"
-
-    # Iterate over the captured inputs list
-    for item in inputs:
+    # Define report path before use
+    report_path = output / f"report-shard-{shard_id}.json"
+    
+    # Extract org name from first work item or environment variable
+    org_name = get_org_name()
+    
+    for item in workitems.inputs:
         try:
             payload = item.payload
             if not isinstance(payload, dict):
@@ -232,7 +211,7 @@ def consumer():
                         pass
                 
                 if "could not resolve host" in str(git_err).lower() or "network" in str(git_err).lower():
-                    log.debug(f"[Shard {shard_id}] {org_name}/{repo_name} - network error, releasing for retry")
+                    log.warn(f"[Shard {shard_id}] {org_name}/{repo_name} - network error, releasing for retry")
                     processed_repos.append({
                         "name": repo_name,
                         "url": url,
@@ -290,7 +269,7 @@ def consumer():
             json.dump(report, f, indent=4)
         log.info(f"[Shard {shard_id}] Consumer task finished. Report at: {report_path}")
     except Exception as e:
-        log.debug(f"Warning: Could not write report to {report_path}: {e}")
+        log.warn(f"Warning: Could not write report to {report_path}: {e}")
 
     # Only create zip if we have successfully cloned repos
     if git_repos:
@@ -327,7 +306,7 @@ def reporter():
         try:
             payload = item.payload
             if not isinstance(payload, dict):
-                log.debug(f"Skipping item with non-dict payload: {payload}")
+                log.warn(f"Skipping item with non-dict payload: {payload}")
                 item.fail("APPLICATION", code="INVALID_PAYLOAD", message="Payload is not a dict.")
                 continue
             
@@ -401,4 +380,4 @@ def reporter():
             }, f, indent=4)
         log.info(f"📄 Detailed report saved to: {report_file}")
     except Exception as e:
-        log.debug(f"Warning: Could not save detailed report: {e}")
+        log.warn(f"Warning: Could not save detailed report: {e}")
