@@ -1,5 +1,5 @@
 from pathlib import Path
-from robocorp import workitems
+from robocorp import workitems, log
 from robocorp.tasks import get_output_dir, task
 import shutil
 import os
@@ -7,6 +7,7 @@ from git import Repo
 from git.exc import GitCommandError
 import json
 import time
+import re
 
 TimeoutException = Exception  # type: ignore
 
@@ -39,19 +40,19 @@ def producer():
                          message="Organization name is required in work item payload 'org' field or ORG_NAME environment variable.")
                 continue
             
-            print(f"Processing organization: {org_name}")
+            log.info(f"Processing organization: {org_name}")
 
             # Get the DataFrame from repos() function with retry logic
             try:
                 df = repos(org_name)
             except Exception as e:
                 error_msg = f"Failed to fetch repositories for {org_name}: {str(e)}"
-                print(error_msg)
+                log.exception(error_msg)
                 item.fail("BUSINESS", code="FETCH_ERROR", message=error_msg)
                 continue
 
             if df is not None and not df.empty:
-                print(f"Processing {len(df)} repositories from DataFrame")
+                log.info(f"Processing {len(df)} repositories from DataFrame")
                 rows = df.to_dict(orient="records")
                 created_count = 0
                 
@@ -71,7 +72,7 @@ def producer():
                         
                         # Validate required fields
                         if not repo_payload.get("URL") or not repo_payload.get("Name"):
-                            print(f"Skipping repository with missing URL or Name: {repo_payload}")
+                            log.debug(f"Skipping repository with missing URL or Name: {repo_payload}")
                             continue
                             
                         # Create work item
@@ -79,27 +80,30 @@ def producer():
                         created_count += 1
                         
                     except Exception as e:
-                        print(f"Error creating work item for repository {row.get('Name', 'unknown')}: {str(e)}")
+                        log.critical(f"Error creating work item for repository {row.get('Name', 'unknown')}: {str(e)}")
                         # Continue processing other repositories
                         continue
                 
-                print(f"Created {created_count} work items out of {len(rows)} repositories")
+                log.info(f"Created {created_count} work items out of {len(rows)} repositories")
                 
                 # Mark the input item as done only after all work items are created
                 item.done()
             else:
-                print("No data received from repos() function")
+                log.debug("No data received from repos() function")
                 item.fail("BUSINESS", code="NO_DATA", message="No repositories found for organization")
                 
         except Exception as e:
             error_msg = f"Unexpected error in producer task: {str(e)}"
-            print(error_msg)
+            log.exception(error_msg)
             item.fail("APPLICATION", code="UNEXPECTED_ERROR", message=error_msg)
 
 @task
 def consumer():
     """Clones all the repositories from the input Work Items and zips them and saves them to the output directory."""
     output = get_output_dir() or Path("output")
+
+    # Convert inputs to a list so we can inspect the first item for org name
+    inputs = list(workitems.inputs)
     
     # Get the managed directory from the fixture via context
     repos_dir = task_context.get("repos_dir")
@@ -108,23 +112,40 @@ def consumer():
 
     # Get shard ID for unique naming
     shard_id = os.getenv("SHARD_ID", "0")
-    filename = f"repos-shard-{shard_id}.zip"
+
+    # Determine organization name to include in filenames. Preference order:
+    # 1) ORG_NAME env via get_org_name(), 2) org field from the first input work item, 3) unknown-org
+    org_name = get_org_name()
+    if not org_name and inputs:
+        try:
+            first_payload = inputs[0].payload
+            if isinstance(first_payload, dict):
+                org_name = first_payload.get("org") or first_payload.get("ORG")
+        except Exception:
+            # If something goes wrong reading the first item, we'll fall back to env or unknown
+            org_name = org_name
+
+    if not org_name:
+        org_name = "unknown-org"
+
+    # Sanitize org name for safe filenames: allow alphanumerics, dash and underscore
+    sanitized_org = re.sub(r"[^A-Za-z0-9_-]", "-", org_name)
+
+    filename = f"repos-{sanitized_org}-shard-{shard_id}.zip"
     output_path = output / filename
     
     processed_repos = []
     git_repos = []  # Track successfully cloned repo paths
     
-    # Define report path before use
-    report_path = output / f"report-shard-{shard_id}.json"
-    
-    # Extract org name from first work item or environment variable
-    org_name = get_org_name()
-    
-    for item in workitems.inputs:
+    # Define report path before use (include sanitized org)
+    report_path = output / f"report-{sanitized_org}-shard-{shard_id}.json"
+
+    # Iterate over the captured inputs list
+    for item in inputs:
         try:
             payload = item.payload
             if not isinstance(payload, dict):
-                print(f"Skipping item with non-dict payload: {payload}")
+                log.debug(f"Skipping item with non-dict payload: {payload}")
                 item.fail("APPLICATION", code="INVALID_PAYLOAD", message="Payload is not a dict.")
                 continue
             
@@ -136,7 +157,7 @@ def consumer():
             repo_name = payload.get("Name")
             
             if not url:
-                print(f"Skipping item with missing URL: {payload}")
+                log.debug(f"Skipping item with missing URL: {payload}")
                 item.fail("APPLICATION", code="MISSING_URL", message="URL is missing in payload.")
                 continue
                 
@@ -145,11 +166,11 @@ def consumer():
                 repo_name = url.split('/')[-1].replace('.git', '')
             
             repo_path = repos_dir / repo_name
-            print(f"[Shard {shard_id}] {org_name}/{repo_name} - cloning...")
+            log.info(f"[Shard {shard_id}] {org_name}/{repo_name} - cloning...")
             
             # Check if repo already exists (idempotency check)
             if repo_path.exists():
-                print(f"[Shard {shard_id}] {org_name}/{repo_name} - already exists, skipping")
+                log.info(f"[Shard {shard_id}] {org_name}/{repo_name} - already exists, skipping")
                 processed_repos.append({
                     "name": repo_name,
                     "url": url,
@@ -180,7 +201,7 @@ def consumer():
 
                 # Clone with GitPython, with timeout and better error handling
                 repo = Repo.clone_from(clone_url, repo_path, depth=1)  # Shallow clone for efficiency
-                print(f"[Shard {shard_id}] {org_name}/{repo_name} - ✓")
+                log.info(f"[Shard {shard_id}] {org_name}/{repo_name} - ✓")
                 processed_repos.append({
                     "name": repo_name,
                     "url": url,
@@ -201,7 +222,7 @@ def consumer():
                 
             except GitCommandError as git_err:
                 error_msg = f"Git error while cloning {repo_name} from org {org_name}: {str(git_err)}"
-                print(f"[Shard {shard_id}] {org_name}/{repo_name} - ✗ {str(git_err)}")
+                log.critical(f"[Shard {shard_id}] {org_name}/{repo_name} - ✗ {str(git_err)}")
                 
                 # Clean up partial clone on failure
                 if repo_path.exists():
@@ -211,7 +232,7 @@ def consumer():
                         pass
                 
                 if "could not resolve host" in str(git_err).lower() or "network" in str(git_err).lower():
-                    print(f"[Shard {shard_id}] {org_name}/{repo_name} - network error, releasing for retry")
+                    log.debug(f"[Shard {shard_id}] {org_name}/{repo_name} - network error, releasing for retry")
                     processed_repos.append({
                         "name": repo_name,
                         "url": url,
@@ -247,7 +268,7 @@ def consumer():
                 
         except Exception as e:
             error_msg = f"Unexpected error processing work item: {str(e)}"
-            print(error_msg)
+            log.exception(error_msg)
             item.fail("APPLICATION", code="UNEXPECTED_ERROR", message=error_msg)
             continue
 
@@ -267,9 +288,9 @@ def consumer():
     try:
         with open(report_path, 'w') as f:
             json.dump(report, f, indent=4)
-        print(f"[Shard {shard_id}] Consumer task finished. Report at: {report_path}")
+        log.info(f"[Shard {shard_id}] Consumer task finished. Report at: {report_path}")
     except Exception as e:
-        print(f"Warning: Could not write report to {report_path}: {e}")
+        log.debug(f"Warning: Could not write report to {report_path}: {e}")
 
     # Only create zip if we have successfully cloned repos
     if git_repos:
@@ -279,13 +300,13 @@ def consumer():
                 output_path.unlink()
                 
             # Zip the cloned repositories directory
-            print(f"[Shard {shard_id}] Zipping {len(git_repos)} cloned repositories...")
+            log.info(f"[Shard {shard_id}] Zipping {len(git_repos)} cloned repositories...")
             shutil.make_archive(str(output_path.with_suffix('')), 'zip', root_dir=repos_dir)
-            print(f"[Shard {shard_id}] Zipped repositories to: {output_path}")
+            log.info(f"[Shard {shard_id}] Zipped repositories to: {output_path}")
         except Exception as e:
-            print(f"Error creating zip archive: {e}")
+            log.critical(f"Error creating zip archive: {e}")
     else:
-        print(f"[Shard {shard_id}] No repositories to zip")
+        log.info(f"[Shard {shard_id}] No repositories to zip")
 
     # Cleanup is now handled by the manage_consumer_directory fixture.
 
@@ -306,7 +327,7 @@ def reporter():
         try:
             payload = item.payload
             if not isinstance(payload, dict):
-                print(f"Skipping item with non-dict payload: {payload}")
+                log.debug(f"Skipping item with non-dict payload: {payload}")
                 item.fail("APPLICATION", code="INVALID_PAYLOAD", message="Payload is not a dict.")
                 continue
             
@@ -315,11 +336,11 @@ def reporter():
                 org_name = get_org_name()
             
             if not org_name:
-                print("Organization name is required in work item payload 'org' field or ORG_NAME environment variable.")
+                log.critical("Organization name is required in work item payload 'org' field or ORG_NAME environment variable.")
                 item.fail("APPLICATION", code="MISSING_ORG_NAME", message="Organization name is missing.")
                 continue
             
-            print(f"Processing report for organization: {org_name}")
+            log.info(f"Processing report for organization: {org_name}")
             
             # Collect statistics from work item
             status = payload.get("status", "unknown")
@@ -349,23 +370,23 @@ def reporter():
             
         except Exception as e:
             error_msg = f"Error processing report item: {str(e)}"
-            print(error_msg)
+            log.critical(error_msg)
             item.fail("APPLICATION", code="UNEXPECTED_ERROR", message=error_msg)
     
     # Generate final summary
     summary_stats["organizations"] = list(summary_stats["organizations"])
     success_rate = (summary_stats["successful_items"] / summary_stats["total_items_processed"] * 100) if summary_stats["total_items_processed"] > 0 else 0
     
-    print("\n" + "="*50)
-    print("FINAL PROCESSING REPORT")
-    print("="*50)
-    print(f"Organizations processed: {len(summary_stats['organizations'])}")
-    print(f"Total repositories: {summary_stats['total_items_processed']}")
-    print(f"✅ Successful: {summary_stats['successful_items']}")
-    print(f"❌ Failed: {summary_stats['failed_items']}")
-    print(f"🔄 Released (for retry): {summary_stats['released_items']}")
-    print(f"📊 Success rate: {success_rate:.1f}%")
-    print("="*50)
+    log.info("=" * 50)
+    log.info("FINAL PROCESSING REPORT")
+    log.info("=" * 50)
+    log.info(f"Organizations processed: {len(summary_stats['organizations'])}")
+    log.info(f"Total repositories: {summary_stats['total_items_processed']}")
+    log.info(f"✅ Successful: {summary_stats['successful_items']}")
+    log.info(f"❌ Failed: {summary_stats['failed_items']}")
+    log.info(f"🔄 Released (for retry): {summary_stats['released_items']}")
+    log.info(f"📊 Success rate: {success_rate:.1f}%")
+    log.info("=" * 50)
     
     # Save detailed report
     output_dir = get_output_dir() or Path("output")
@@ -378,7 +399,6 @@ def reporter():
                 "summary": summary_stats,
                 "success_rate_percent": success_rate
             }, f, indent=4)
-        print(f"📄 Detailed report saved to: {report_file}")
+        log.info(f"📄 Detailed report saved to: {report_file}")
     except Exception as e:
-        print(f"Warning: Could not save detailed report: {e}")
-
+        log.debug(f"Warning: Could not save detailed report: {e}")
