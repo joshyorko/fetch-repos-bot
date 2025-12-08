@@ -12,7 +12,7 @@ from pathlib import Path
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from custom_adapters.sqlite_adapter import SQLiteAdapter
+from robocorp_adapters_custom._sqlite import SQLiteAdapter
 
 
 def seed_producer_workitem():
@@ -20,7 +20,7 @@ def seed_producer_workitem():
 
     # Set environment for SQLite adapter
     os.environ["RC_WORKITEM_DB_PATH"] = "devdata/work_items.db"
-    os.environ["RC_WORKITEM_QUEUE_NAME"] = "qa_forms"
+    os.environ["RC_WORKITEM_QUEUE_NAME"] = "fetch_repos"
 
     # Initialize adapter
     adapter = SQLiteAdapter()
@@ -46,12 +46,12 @@ def seed_producer_workitem():
     item_id = str(uuid_module.uuid4())
 
     # Insert directly into input queue (not output queue)
-    conn = adapter._get_connection()
-    conn.execute("""
-        INSERT INTO work_items (id, queue_name, parent_id, payload, state, created_at)
-        VALUES (?, ?, ?, ?, 'PENDING', CURRENT_TIMESTAMP)
-    """, (item_id, adapter.queue_name, None, json.dumps(payload)))
-    conn.commit()
+    with adapter._pool.acquire() as conn:
+        conn.execute("""
+            INSERT INTO work_items (id, queue_name, parent_id, payload, state, created_at)
+            VALUES (?, ?, ?, ?, 'PENDING', CURRENT_TIMESTAMP)
+        """, (item_id, adapter.queue_name, None, json.dumps(payload)))
+        conn.commit()
 
     print(f"✓ Created producer work item: {item_id}")
     print(f"  Payload: {json.dumps(payload, indent=2)}")
