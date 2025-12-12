@@ -20,5 +20,5 @@ dependencies:
       - redis==5.0.4
       - psycopg2-binary==2.9.9
       - SQLAlchemy==2.0.0
-      - pymongo==4.8.0
-      - robocorp_adapters_custom
+      - pymongo==4.15.5
+      - robocorp_adapters_custom==0.1.3
