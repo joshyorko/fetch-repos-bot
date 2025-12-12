@@ -31,23 +31,23 @@ jobs:
 
       - name: Install RCC
         run: |
-          if [ ! -x .tools/rcc/v18.8.0/rcc ]; then
-            mkdir -p .tools/rcc/v18.8.0
-            curl -sSL https://github.com/joshyorko/rcc/releases/download/v18.8.0/rcc-linux64 -o .tools/rcc/v18.8.0/rcc
-            chmod +x .tools/rcc/v18.8.0/rcc
+          if [ ! -x .tools/rcc/latest/rcc ]; then
+            mkdir -p .tools/rcc/latest
+            curl -sSL https://github.com/joshyorko/rcc/releases/download/latest/rcc-linux64 -o .tools/rcc/latest/rcc
+            chmod +x .tools/rcc/latest/rcc
           fi
           # Make rcc available in this step and subsequent ones
-          echo "${GITHUB_WORKSPACE}/.tools/rcc/v18.8.0" >> "$GITHUB_PATH"
-          export PATH="${GITHUB_WORKSPACE}/.tools/rcc/v18.8.0:$PATH"
+          echo "${GITHUB_WORKSPACE}/.tools/rcc/latest" >> "$GITHUB_PATH"
+          export PATH="${GITHUB_WORKSPACE}/.tools/rcc/latest:$PATH"
           rcc version
 
       - name: Cache ROBOCORP_HOME
         uses: actions/cache@v4
         with:
           path: ${{ env.ROBOCORP_HOME }}
-          key: rcc-home-${{ runner.os }}-rccv18.8.0-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
+          key: rcc-home-${{ runner.os }}-rcclatest-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
           restore-keys: |
-            rcc-home-${{ runner.os }}-rccv18.8.0-
+            rcc-home-${{ runner.os }}-rcclatest-
             rcc-home-${{ runner.os }}-
 
       - name: Disable RCC telemetry
@@ -114,23 +114,23 @@ jobs:
 
       - name: Install RCC
         run: |
-          if [ ! -x .tools/rcc/v18.8.0/rcc ]; then
-            mkdir -p .tools/rcc/v18.8.0
-            curl -sSL https://github.com/joshyorko/rcc/releases/download/v18.8.0/rcc-linux64 -o .tools/rcc/v18.8.0/rcc
-            chmod +x .tools/rcc/v18.8.0/rcc
+          if [ ! -x .tools/rcc/latest/rcc ]; then
+            mkdir -p .tools/rcc/latest
+            curl -sSL https://github.com/joshyorko/rcc/releases/download/latest/rcc-linux64 -o .tools/rcc/latest/rcc
+            chmod +x .tools/rcc/latest/rcc
           fi
           # Make rcc available in this step and subsequent ones
-          echo "${GITHUB_WORKSPACE}/.tools/rcc/v18.8.0" >> "$GITHUB_PATH"
-          export PATH="${GITHUB_WORKSPACE}/.tools/rcc/v18.8.0:$PATH"
+          echo "${GITHUB_WORKSPACE}/.tools/rcc/latest" >> "$GITHUB_PATH"
+          export PATH="${GITHUB_WORKSPACE}/.tools/rcc/latest:$PATH"
           rcc version
 
       - name: Cache ROBOCORP_HOME
         uses: actions/cache@v4
         with:
           path: ${{ env.ROBOCORP_HOME }}
-          key: rcc-home-${{ runner.os }}-rccv18.8.0-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
+          key: rcc-home-${{ runner.os }}-rcclatest-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
           restore-keys: |
-            rcc-home-${{ runner.os }}-rccv18.8.0-
+            rcc-home-${{ runner.os }}-rcclatest-
             rcc-home-${{ runner.os }}-
 
       - name: Disable RCC telemetry
@@ -199,23 +199,23 @@ jobs:
 
       - name: Install RCC
         run: |
-          if [ ! -x .tools/rcc/v18.8.0/rcc ]; then
-            mkdir -p .tools/rcc/v18.8.0
-            curl -sSL https://github.com/joshyorko/rcc/releases/download/v18.8.0/rcc-linux64 -o .tools/rcc/v18.8.0/rcc
-            chmod +x .tools/rcc/v18.8.0/rcc
+          if [ ! -x .tools/rcc/latest/rcc ]; then
+            mkdir -p .tools/rcc/latest
+            curl -sSL https://github.com/joshyorko/rcc/releases/download/latest/rcc-linux64 -o .tools/rcc/latest/rcc
+            chmod +x .tools/rcc/latest/rcc
           fi
           # Make rcc available in this step and subsequent ones
-          echo "${GITHUB_WORKSPACE}/.tools/rcc/v18.8.0" >> "$GITHUB_PATH"
-          export PATH="${GITHUB_WORKSPACE}/.tools/rcc/v18.8.0:$PATH"
+          echo "${GITHUB_WORKSPACE}/.tools/rcc/latest" >> "$GITHUB_PATH"
+          export PATH="${GITHUB_WORKSPACE}/.tools/rcc/latest:$PATH"
           rcc version
 
       - name: Cache ROBOCORP_HOME
         uses: actions/cache@v4
         with:
           path: ${{ env.ROBOCORP_HOME }}
-          key: rcc-home-${{ runner.os }}-rccv18.8.0-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
+          key: rcc-home-${{ runner.os }}-rcclatest-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
           restore-keys: |
-            rcc-home-${{ runner.os }}-rccv18.8.0-
+            rcc-home-${{ runner.os }}-rcclatest-
             rcc-home-${{ runner.os }}-
 
       - name: Disable RCC telemetry
@@ -300,22 +300,22 @@ jobs:
 
       - name: Install RCC
         run: |
-          if [ ! -x .tools/rcc/v18.8.0/rcc ]; then
-            mkdir -p .tools/rcc/v18.8.0
-            curl -sSL https://github.com/joshyorko/rcc/releases/download/v18.8.0/rcc-linux64 -o .tools/rcc/v18.8.0/rcc
-            chmod +x .tools/rcc/v18.8.0/rcc
+          if [ ! -x .tools/rcc/latest/rcc ]; then
+            mkdir -p .tools/rcc/latest
+            curl -sSL https://github.com/joshyorko/rcc/releases/download/latest/rcc-linux64 -o .tools/rcc/latest/rcc
+            chmod +x .tools/rcc/latest/rcc
           fi
-          echo "${GITHUB_WORKSPACE}/.tools/rcc/v18.8.0" >> "$GITHUB_PATH"
-          export PATH="${GITHUB_WORKSPACE}/.tools/rcc/v18.8.0:$PATH"
+          echo "${GITHUB_WORKSPACE}/.tools/rcc/latest" >> "$GITHUB_PATH"
+          export PATH="${GITHUB_WORKSPACE}/.tools/rcc/latest:$PATH"
           rcc version
 
       - name: Cache ROBOCORP_HOME
         uses: actions/cache@v4
         with:
           path: ${{ env.ROBOCORP_HOME }}
-          key: rcc-home-${{ runner.os }}-rccv18.8.0-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
+          key: rcc-home-${{ runner.os }}-rcclatest-${{ hashFiles('**/robot.yaml','**/conda.yaml') }}
           restore-keys: |
-            rcc-home-${{ runner.os }}-rccv18.8.0-
+            rcc-home-${{ runner.os }}-rcclatest-
             rcc-home-${{ runner.os }}-
 
       - name: Disable RCC telemetry
