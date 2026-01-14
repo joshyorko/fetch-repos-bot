@@ -5,8 +5,13 @@ import sys
 
 def main(max_workers):
     # Read work items from producer output
-    with open('output/producer-to-consumer/work-items.json', 'r') as f:
-        work_items = json.load(f)
+    work_items_path = Path('output/producer-to-consumer/work-items.json')
+    if not work_items_path.exists():
+        print(f"Warning: {work_items_path} not found, treating as empty work items.")
+        work_items = []
+    else:
+        with open(work_items_path, 'r') as f:
+            work_items = json.load(f)
     max_workers = int(max_workers)
     total = len(work_items)
 
