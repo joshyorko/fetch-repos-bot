@@ -1,198 +1,127 @@
----
-title: fetch-repos-bot - Automated GitHub Repo Fetching & RPA Pipeline
-author: Joshua Yorko, [@joshyorko](https://github.com/joshyorko), joshua.yorko@gmail.com
----
-[![Open in DevPod!](https://devpod.sh/assets/open-in-devpod.svg)](https://devpod.sh/open#https://github.com/joshyorko/fetch-repos-bot)
-# fetch-repos-bot
+# Python Work Items with Custom Adapters
 
-
-
-<p align="center">
-  <img src="assets/logo.png" alt="Project Logo" width="600"/>
-</p>
-
+A producer-consumer automation template demonstrating scalable work item processing with pluggable database backends.
 
 ## Overview
 
-**fetch-repos-bot** is a reference implementation and prototype of a highly scalable, production-grade Robocorp producer-consumer robot pattern—demonstrating advanced orchestration, sharding, and parallelism beyond what is available in official Robocorp examples. This project automates the fetching, processing, and management of GitHub repositories from any organization, using a robust, matrix-sharded producer-consumer architecture. It is designed for true scale: leveraging RCC for environment isolation, Python for orchestration, and GitHub Actions for distributed, parallel execution. The approach here can serve as a blueprint for building large-scale, cloud-native RPA pipelines with Robocorp, and is suitable for both local and CI/CD automation.
+This template showcases the [robocorp-adapters-custom](https://pypi.org/project/robocorp-adapters-custom/) library, which provides custom adapters for Robocorp's work items system. Instead of being limited to Robocorp Control Room, you can use **Redis**, **MongoDB**, or **SQLite** as your work item backend—perfect for self-hosted deployments, local development, and CI/CD pipelines.
 
-Key highlights:
-- **True producer-consumer separation** with artifact handoff and sharded work distribution.
-- **Matrix sharding** for massive parallelism—each consumer job processes a unique shard, maximizing throughput.
-- **RCC-managed environments** ensure reproducibility and isolation, with Docker image rebuilds only when the robot or environment definition changes.
-- **Extensible and transparent**: All orchestration logic, environment management, and workflow automation is open and customizable, making this repo a practical foundation for advanced RPA and automation engineering.
+## Setup
 
----
+1. **Install RCC** (if not already installed):
+   - Download from [RCC releases](https://github.com/joshyorko/rcc/releases)
 
-## Features
-- **Producer-Consumer Architecture:** Efficiently splits work between producer (fetches and shards repo data) and consumer (processes shards in parallel).
-- **Matrix Sharding:** Dynamically divides work items into shards for parallel processing, maximizing throughput.
-- **Robocorp RCC Integration:** Uses RCC for environment management and task execution.
-- **GitHub Actions Workflows:** Includes advanced workflows for both single and matrix-based execution, supporting custom runners and scalable automation.
-- **Python & Conda Environment:** All dependencies are managed via `conda.yaml` for reproducibility.
-- **RCC-Managed Environments:** All environments are fully managed and isolated by [Robocorp RCC](https://robocorp.com/docs/rcc/), ensuring reproducibility and separation from the host system. The robot environment is defined by `robot.yaml` and `conda.yaml`, but RCC handles all environment creation and management for both local and CI runs.
-- **Docker Image Rebuilds:** The custom runner Docker image is only rebuilt if `conda.yaml`, `robot.yaml`, or the `Dockerfile` itself changes. For all other code or workflow changes, the environment remains stable and isolated by RCC.
-
----
-
-## Project Structure
-
-- `assets/logo.png` — Project logo.
-- `assets/process.png` — Diagram or process illustration for the project.
-- `start.sh` — Local entrypoint to run the full producer-consumer pipeline for local testing and development. This script allows you to execute the entire workflow on your machine, simulating the GitHub Actions process without requiring a remote runner. For more details on Robocorp tasks and local execution, see the [Robocorp Tasks documentation](https://robocorp.com/docs/development-guide/tasks/).
-- `robot.yaml` — Robocorp robot configuration, defines tasks, environments, and references to `conda.yaml`.
-- `conda.yaml` — Conda environment specification referenced by RCC; actual environment is built and managed by RCC for full isolation.
-- `tasks.py` — Main Python file with Robocorp task definitions for producer and consumer.
-- `scripts/` — Helper scripts:
-  - `generate_shards_and_matrix.py` — Splits work items into shards and generates the matrix for parallel processing.
-  - `fetch_repos.py` — Logic for fetching repositories.
-  - `extract-secrets-for-ga.sh` — Extracts secrets for GitHub Actions workflows.
-  - `install-upgrade-arc.sh` — Installs or upgrades ARC runner and selects values files.
-  - `remove_finalizers_arc_runners.sh` — Removes Kubernetes finalizers from ARC runner resources.
-  - `shard_loader.py` — Loads and processes shards for matrix jobs.
-- `devdata/` — Input/output data, environment files, and work items:
-  - `env-for-consumer.json` — Environment variables for the consumer.
-  - `env-for-producer.json` — Environment variables for the producer.
-- `output/` — Output directory for artifacts and results.
-- `.github/workflows/` — Contains GitHub Actions workflows:
-  - `build-arc-docker.yaml` — Builds and pushes the Fetch Repos Bot Runner Docker image, updates image tags, and creates PRs for tag bumps.
-  - `build-kaniko-docker.yaml` — Builds and pushes Docker images using Kaniko for environments where Docker-in-Docker is not available.
-  - `fetch-repos-matrix-hosted.yaml` — Matrix-based workflow for hosted runners.
-  - `fetch-repos-matrix-self-hosted.yaml` — Matrix-based workflow for self-hosted runners.
-- `repos/` — Contains files for building a custom GitHub Actions Runner image with pre-installed dependencies:
-  - `Dockerfile` — Defines the Docker image build process. **Note:** The image is only rebuilt if `Dockerfile`, `conda.yaml`, or `robot.yaml` change. RCC ensures the robot environment is always isolated and reproducible.
-  - `conda.yaml` — Conda environment specification for the Docker image, ensuring necessary Python packages are available.
-  - `robot.yaml` — Robocorp robot configuration specific to the Docker environment, if needed.
-  - `values.yaml` — Configuration values, potentially for deploying the runner in a Kubernetes environment (e.g., defining resources, image name).
-
----
-
-## How It Works
-
-1. **Producer Step:**
-   - Fetches repository data from the specified GitHub organization.
-   - Generates work items and shards them for parallel processing (if using matrix workflow).
-   - Uploads output artifacts for consumers.
-
-2. **Consumer Step:**
-   - Downloads the relevant shard or work items.
-   - Processes each repository as defined in the consumer task.
-   - Uploads results as artifacts.
-
-3. **Matrix Workflow:**
-   - Uses `generate_shards_and_matrix.py` to split work and create a matrix for parallel jobs in GitHub Actions.
-   - Each consumer job processes a shard, maximizing efficiency.
-
----
-
-## Running Locally
-
-1. **Install RCC:**
-   - Download and install RCC from [Robocorp](https://robocorp.com/docs/rcc/installation/).
-
-2. **Run the Pipeline:**
+2. **Start the backend services** (optional - for Redis/MongoDB):
    ```bash
-   ./start.sh [MAX_WORKERS]
+   docker-compose up -d
    ```
-   - `MAX_WORKERS` (optional) sets how many shards to create. Defaults to `3`.
-   - Set `ORG_NAME` before running if you want to override the organization used
-     for the producer.
+   This starts:
+   - **Redis** on port `6379` (with RedisInsight UI on `5540`)
+   - **MongoDB** on port `27017` (with Mongo Express UI on `8081`)
 
-   The script now runs the consumer once for each shard so you can test the
-   sharding workflow locally.
+3. **Configure your adapter** by setting environment variables or using the provided env files in `devdata/`
 
-3. **Custom Execution:**
-   - You can run individual tasks using RCC or Python as defined in `robot.yaml`.
+## Supported Adapters
 
-### AssistantOrg Interactive Pipeline Launcher
+| Adapter | Environment Variable | Use Case |
+|---------|---------------------|----------|
+| **SQLite** | `RC_WORKITEM_ADAPTER=robocorp_adapters_custom._sqlite.SQLiteAdapter` | Local development, single-machine workflows |
+| **Redis** | `RC_WORKITEM_ADAPTER=robocorp_adapters_custom._redis.RedisAdapter` | Distributed workflows, high throughput |
+| **MongoDB** | `RC_WORKITEM_ADAPTER=robocorp_adapters_custom._docdb.DocumentDBAdapter` | Document storage, AWS DocumentDB compatible |
 
-The `AssistantOrg` task provides an intuitive GUI to configure and run the complete fetch-repos-bot pipeline locally, mirroring the GitHub Actions workflow.
+## Usage
 
-Run it:
+Run the producer (creates work items):
+```bash
+rcc run -t Producer -e devdata/env-sqlite-producer.json
+# or with Redis:
+rcc run -t Producer -e devdata/env-redis-producer.json
+# or with MongoDB:
+rcc run -t Producer -e devdata/env-docdb-producer.json
+```
+
+Run the consumer (processes work items):
+```bash
+rcc run -t Consumer -e devdata/env-sqlite-consumer.json
+```
+
+Run the reporter (generates summary):
+```bash
+rcc run -t Reporter -e devdata/env-sqlite-for-reporter.json
+```
+
+Run the interactive assistant:
 ```bash
 rcc run -t AssistantOrg
 ```
 
-**Flow:**
-1. **Configuration Dialog**: Enter GitHub organization name and max workers
-2. **Single "Run Pipeline" Button**: Starts the complete workflow
-3. **Live Progress**: Shows current stage with loading bar and previous results
-4. **Complete Pipeline**: Producer → Consumer → Reporter → Dashboard (same as GitHub Actions)
-5. **Persistent Results Summary**: Final view stays open with success/failure per stage and a "Run Again" button
-
-**What it does:**
-- Creates proper work-items files and environment configs (like GitHub Actions)
-- Runs each task via RCC with proper isolation and logging
-- Handles failures gracefully (skips dependent stages if prerequisites fail)
-- Generates the complete dashboard and reports in `output/`
-- Shows clear visual feedback throughout the process without closing the window
-
-**Output Files:**
-- `output/consolidated_dashboard_jinja2.html` - Main dashboard
-- `output/final_report_*.json` - Processing summary
-- `output/*.zip` - Cloned repositories
-- Console logs for each stage
-
-**Advantages over manual execution:**
-- No need to manually create work-items files or environment configs
-- Visual progress tracking and error handling
-- Runs the complete end-to-end pipeline in one action
-- Intuitive GUI without complex command-line parameters
-
----
-
-## GitHub Actions Workflows
-
-- **fetch-repos-matrix.yaml:**
-  - The primary workflow for this project.
-  - Supports parallel consumer jobs using matrix strategy.
-  - Accepts `org_name` and `max_workers` as inputs.
-  - Can be configured to use the custom Docker image built from the `repos` directory for self-hosted runners, ensuring all dependencies are pre-installed for faster and more reliable execution.
-
----
-
-## Environment & Dependencies
-
-- All environments are managed and isolated by RCC. You do not need to manually manage Python or Conda environments.
-- The robot environment is defined by `robot.yaml` and `conda.yaml`, but RCC ensures reproducibility and isolation for both local and CI runs.
-- The Docker image is only rebuilt if `conda.yaml`, `robot.yaml`, or the `Dockerfile` changes. For all other changes, the environment remains stable.
-- See `conda.yaml` for the base dependencies, but rely on RCC for all environment management.
-
----
-
-## License
-
-This project is licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
-
----
-
-## Contributing
-
-Contributions are welcome! Please open issues or submit pull requests for improvements, bug fixes, or new features.
-
----
-
-### Contributors
-
-![Contributors](https://contrib.nn.ci/api?repo=joshyorko/fetch-repos-bot)
-
-## References
-- [Robocorp Documentation](https://robocorp.com/docs/)
-- [RCC Documentation](https://github.com/robocorp/rcc)
-- [GitHub Actions Documentation](https://docs.github.com/en/actions)
-
-## Authentication for private repositories
-
-If you want to fetch or clone private repositories, supply a GitHub Personal Access Token (PAT) via an environment variable named `GITHUB_TOKEN` or `GH_TOKEN` before running the producer or consumer tasks. The token will be used for API requests (higher rate limits and access to private repos) and for cloning via HTTPS.
-
-Example (bash/zsh):
-
+To activate the environment for development:
 ```bash
-export GITHUB_TOKEN=ghp_xxxYOURTOKENxxx
-./start.sh
+rcc ht vars
 ```
 
-Security notes:
-- Keep tokens secret and prefer repository or runner-level secrets when running in CI/CD
-- The code injects the token into HTTPS clone URLs at runtime; it is not logged by default but avoid printing environment variables in CI logs.
+## Configuration
+
+Environment variables for each adapter:
+
+### SQLite
+```json
+{
+  "RC_WORKITEM_ADAPTER": "robocorp_adapters_custom._sqlite.SQLiteAdapter",
+  "RC_WORKITEM_DB_PATH": "devdata/work_items.db",
+  "RC_WORKITEM_QUEUE_NAME": "my_queue"
+}
+```
+
+### Redis
+```json
+{
+  "RC_WORKITEM_ADAPTER": "robocorp_adapters_custom._redis.RedisAdapter",
+  "REDIS_HOST": "localhost",
+  "REDIS_PORT": "6379",
+  "RC_WORKITEM_QUEUE_NAME": "my_queue"
+}
+```
+
+### MongoDB/DocumentDB
+```json
+{
+  "RC_WORKITEM_ADAPTER": "robocorp_adapters_custom._docdb.DocumentDBAdapter",
+  "DOCDB_HOSTNAME": "localhost",
+  "DOCDB_PORT": "27017",
+  "DOCDB_USERNAME": "user",
+  "DOCDB_PASSWORD": "password",
+  "DOCDB_DATABASE": "workitems"
+}
+```
+
+## Project Structure
+
+```
+├── tasks.py                 # Main producer/consumer/reporter tasks
+├── assistant.py             # Interactive GUI launcher
+├── robot.yaml               # Task definitions
+├── conda.yaml               # Python dependencies
+├── docker-compose.yml       # Redis & MongoDB services
+├── devdata/                 # Environment configs & test data
+│   ├── env-sqlite-*.json    # SQLite adapter configs
+│   ├── env-redis-*.json     # Redis adapter configs
+│   └── env-docdb-*.json     # MongoDB adapter configs
+├── scripts/                 # Helper utilities
+│   ├── seed_sqlite_db.py    # Seed SQLite with test data
+│   ├── seed_redis_db.py     # Seed Redis with test data
+│   └── seed_docdb.py        # Seed MongoDB with test data
+└── dashboard/               # Dashboard generation
+```
+
+## GitHub Actions
+
+The included workflow supports matrix-based parallel execution with caching for faster builds. Each consumer job processes a shard of work items independently.
+
+## Documentation Resources
+
+* [robocorp-adapters-custom](https://pypi.org/project/robocorp-adapters-custom/) - Custom work item adapters
+* [RCC Documentation](https://github.com/joshyorko/rcc/blob/master/docs/README.md)
+* [Robocorp Documentation](https://robocorp.com/docs) - RPA patterns and examples
+* [Robocorp Work Items](https://sema4.ai/docs/automation/python/robocorp/robocorp-workitems)
 

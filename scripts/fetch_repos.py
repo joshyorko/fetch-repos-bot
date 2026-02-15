@@ -57,7 +57,7 @@ def fetch_github_repos(entity: str, entity_type: str = None, write_csv: bool = F
     per_page = 100
     headers = {
         "Accept": "application/vnd.github.v3+json",
-        "User-Agent": "fetch-repos-bot/1.0"
+        "User-Agent": "python-work-items-template/1.0"
     }
     if token:
         # Use token for authenticated requests (allows higher rate limits and access to private repos)
@@ -139,4 +139,3 @@ def fetch_github_repos(entity: str, entity_type: str = None, write_csv: bool = F
         )
     
     return df
-

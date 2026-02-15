@@ -1,5 +1,5 @@
 # For more details on the format and content:
-# https://github.com/robocorp/rcc/blob/master/docs/recipes.md#what-is-in-robotyaml
+# https://github.com/joshyorko/rcc/blob/master/docs/recipes.md#what-is-in-robotyaml
 
 tasks:
   Producer:
@@ -31,7 +31,7 @@ devTasks:
     shell: python scripts/diagnose_reporter_issue.py
 
   ListWorkItems:
-    shell: python -m robocorp.tasks run listworkitems.py -t list_work_items
+    shell: python -m robocorp.tasks run scripts/listworkitems.py -t list_work_items
 
 environmentConfigs:
   - environment_windows_amd64_freeze.yaml

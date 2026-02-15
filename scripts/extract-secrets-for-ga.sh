@@ -31,7 +31,7 @@ usage() {
     echo "  - $OUTPUT_DIR/KUBECONFIG_DATA: Base64 encoded kubeconfig."
     echo "  - $OUTPUT_DIR/ARC_PRIVATE_KEY: Base64 encoded content of the latest \'*.private-key.pem\' file."
     echo ""
-    echo "These filenames match the secret names used in \'.github/workflows/deploy-arc.yaml\'."
+    echo "These filenames match the secret names typically used in your deployment workflow."
 }
 
 # Function to log messages
@@ -77,7 +77,7 @@ show_example_workflow() {
     cat << EOF
 
 # Example GitHub Actions workflow using these secrets:
-# (based on .github/workflows/deploy-arc.yaml)
+# (adapt this to your deployment workflow)
 
 name: Deploy ARC Runner
 
@@ -86,7 +86,7 @@ on:
     branches:
       - main
     paths:
-      - \'repos/fetch-repos/values.yaml\'
+      - \'repos/<runner-template>/values.yaml\'
 
 jobs:
   deploy:
@@ -122,10 +122,9 @@ jobs:
         with:
           version: \'latest\'
 
-      - name: Run install script
+      - name: Run deployment step
         run: |
-          chmod +x scripts/install-upgrade-arc.sh
-          ./scripts/install-upgrade-arc.sh fetch-repos
+          echo "Run your ARC install/upgrade command here"
 EOF
 }
 

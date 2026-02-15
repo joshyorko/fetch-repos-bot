@@ -1,5 +1,5 @@
 # For more details on the format and content:
-# https://github.com/robocorp/rcc/blob/master/docs/recipes.md#what-is-in-condayaml
+# https://github.com/joshyorko/rcc/blob/master/docs/recipes.md#what-is-in-condayaml
 # Tip: Adding a link to the release notes of the packages helps maintenance and security.
 
 #channels:
@@ -9,16 +9,16 @@ dependencies:
   - python=3.12.11
   - uv=0.10.2
   - pip:
-      - robocorp==3.0.0
-      - robocorp-truststore==0.9.1
-      - rpaframework-assistant==5.0.0
-      - requests==2.32.5
-      - gitpython==3.1.45
-      - pandas==2.3.3
-      - beautifulsoup4==4.14.3
-      - jinja2==3.1.6
-      - redis==7.1.0
-      - psycopg2-binary==2.9.11
-      - SQLAlchemy==2.0.45
-      - pymongo==4.15.5
-      - robocorp_adapters_custom==0.1.4
+      - robocorp==3.0.0 # https://pypi.org/project/robocorp
+      - robocorp-truststore==0.9.1 # https://pypi.org/project/robocorp-truststore
+      - rpaframework-assistant==5.0.0 # https://pypi.org/project/rpaframework-assistant
+      - requests==2.32.5 # https://pypi.org/project/requests
+      - gitpython==3.1.46 # https://pypi.org/project/GitPython
+      - pandas==2.3.3 # https://pypi.org/project/pandas
+      - beautifulsoup4==4.14.3 # https://pypi.org/project/beautifulsoup4
+      - jinja2==3.1.6 # https://pypi.org/project/Jinja2
+      - redis==7.1.0 # https://pypi.org/project/redis
+      - psycopg2-binary==2.9.11 # https://pypi.org/project/psycopg2-binary
+      - SQLAlchemy==2.0.45 # https://pypi.org/project/SQLAlchemy
+      - pymongo==4.15.5 # https://pypi.org/project/pymongo
+      - robocorp-adapters-custom==0.1.4 # https://pypi.org/project/robocorp-adapters-custom

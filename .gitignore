@@ -1,4 +1,4 @@
-output/
+
 venv/
 temp/
 .rpa/
@@ -16,3 +16,4 @@ testrun/*
 .~lock*
 *.pkl
 custom_adapters/
+output
